@@ -3,6 +3,7 @@ import * as http from "http";
 import * as vscode from "vscode";
 import { EventEmitter } from "events";
 import * as cont from "../common/tools/continue";
+import * as variables from "../common/tools/variables";
 import * as evaluate from "../common/tools/evaluate";
 import * as launch from "../common/tools/launch";
 import * as removeBreakpoint from "../common/tools/removeBreakpoint";
@@ -238,6 +239,12 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
         return this.handleRemoveBreakpoint(
           removeBreakpoint.tool.inputSchema.parse(request.arguments),
         );
+      case "variables":
+        return this.handleVariables(variables.tool.inputSchema.parse(request.arguments));
+      case "evaluate":
+        return this.handleEvaluate(
+          evaluate.tool.inputSchema.parse(request.arguments),
+        );
       case "launch":
         return this.handleLaunch();
       case "continue":
@@ -361,76 +368,71 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
     return "Success.";
   }
 
-  private async handleDebug(payload: {
-    steps: DebugStep[];
-  }): Promise<string[]> {
-    const results: string[] = [];
-
-    for (const step of payload.steps) {
-      switch (step.type) {
-        case "evaluate": {
-          const session = vscode.debug.activeDebugSession;
-          if (!session) {
-            throw new Error("No active debug session");
-          }
-
-          const activeStackItem = vscode.debug.activeStackItem;
-
-          // Grab the active frameId
-          let frameId = undefined;
-          if (activeStackItem instanceof vscode.DebugStackFrame) {
-            frameId = activeStackItem.frameId;
-          }
-
-          // In case activeStackItem.frameId is falsey
-          if (!frameId) {
-            // Get the current stack frame
-            const frames = await session.customRequest("stackTrace", {
-              threadId: 1, // You might need to get the actual threadId
-            });
-
-            if (
-              !frames ||
-              !frames.stackFrames ||
-              frames.stackFrames.length === 0
-            ) {
-              vscode.window.showErrorMessage("No stack frame available");
-              break;
-            }
-
-            frameId = frames.stackFrames[0].id; // Usually use the top frame
-          }
-
-          try {
-            const response = await session.customRequest("evaluate", {
-              expression: step.expression,
-              frameId: frameId,
-              context: "repl",
-            });
-
-            results.push(`Evaluated "${step.expression}": ${response.result}`);
-          } catch (err: any) {
-            let errorMessage = "";
-            let stackTrace = "";
-
-            if (err instanceof Error) {
-              errorMessage = err.message;
-              if (err.stack) {
-                stackTrace = `\nStack: ${err.stack}`;
-              }
-            } else {
-              errorMessage = String(err);
-            }
-            results.push(
-              `ERROR: Evaluation failed for "${step.expression}": ${errorMessage}${stackTrace}`,
-            );
-          }
-          break;
-        }
-      }
+  private async handleVariables(payload: z.infer<typeof variables.tool.inputSchema>) {
+    const session = vscode.debug.activeDebugSession;
+    if (!session) {
+      return "No active debug session.";
     }
 
-    return results;
+    const response = await session.customRequest("variables", {
+          variablesReference: payload.variablesReference
+    });
+
+    return `Variables result: ${JSON.stringify(response)}`;
+  }
+
+  private async handleEvaluate(
+    payload: z.infer<typeof evaluate.tool.inputSchema>,
+  ) {
+    const session = vscode.debug.activeDebugSession;
+    if (!session) {
+      return "No active debug session.";
+    }
+
+    const activeStackItem = vscode.debug.activeStackItem;
+
+    // Grab the active frameId
+    let frameId = undefined;
+    if (activeStackItem instanceof vscode.DebugStackFrame) {
+      frameId = activeStackItem.frameId;
+    }
+
+    // In case activeStackItem.frameId is falsey
+    if (!frameId) {
+      // Get the current stack frame
+      const frames = await session.customRequest("stackTrace", {
+        threadId: 1, // You might need to get the actual threadId
+      });
+
+      if (!frames || !frames.stackFrames || frames.stackFrames.length === 0) {
+        return "No stack frame available";
+      }
+
+      frameId = frames.stackFrames[0].id; // Usually use the top frame
+    }
+
+    try {
+      const response = await session.customRequest("evaluate", {
+        expression: payload.expression,
+        frameId: frameId,
+        context: "watch",
+      });
+
+      return `Eval result: ${JSON.stringify(response)}`;
+    } catch (err: any) {
+      let errorMessage = "";
+      let stackTrace = "";
+
+      if (err instanceof Error) {
+        errorMessage = err.message;
+        if (err.stack) {
+          stackTrace = `\nStack: ${err.stack}`;
+        }
+      } else {
+        errorMessage = String(err);
+      }
+      return `Eval failed: ${errorMessage}${stackTrace}`;
+    }
   }
 
   stop(): Promise<void> {
