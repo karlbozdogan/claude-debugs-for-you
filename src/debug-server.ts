@@ -241,6 +241,10 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
         return await this.handleSetBreakpoint(
           setBreakpoint.tool.inputSchema.parse(request.arguments),
         );
+      case "removeBreakpoint":
+        return await this.handleRemoveBreakpoint(
+          removeBreakpoint.tool.inputSchema.parse(request.arguments),
+        );
       case "continue":
         return await this.handleContinue();
       default:
@@ -383,6 +387,19 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
     return { content: [{ type: "text" as const, text: "Success." }] };
   }
 
+  private async handleRemoveBreakpoint(
+    payload: z.infer<typeof removeBreakpoint.tool.inputSchema>,
+  ) {
+    const bps = vscode.debug.breakpoints.filter((bp) => {
+      if (bp instanceof vscode.SourceBreakpoint) {
+        return bp.location.range.start.line === payload.line - 1;
+      }
+      return false;
+    });
+    vscode.debug.removeBreakpoints(bps);
+    return { content: [{ type: "text" as const, text: "Success." }] };
+  }
+
   private async handleDebug(payload: {
     steps: DebugStep[];
   }): Promise<string[]> {
@@ -390,21 +407,6 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
 
     for (const step of payload.steps) {
       switch (step.type) {
-        case "removeBreakpoint": {
-          if (!step.line) {
-            throw new Error("Line number required");
-          }
-          const bps = vscode.debug.breakpoints.filter((bp) => {
-            if (bp instanceof vscode.SourceBreakpoint) {
-              return bp.location.range.start.line === step.line! - 1;
-            }
-            return false;
-          });
-          await vscode.debug.removeBreakpoints(bps);
-          results.push(`Removed breakpoint at line ${step.line}`);
-          break;
-        }
-
         case "evaluate": {
           const session = vscode.debug.activeDebugSession;
           if (!session) {
