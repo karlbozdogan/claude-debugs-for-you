@@ -38,13 +38,37 @@ you are, if paused on a breakpoint. Make sure to find and get the contents of an
 Only use continue when ready to move to the next breakpoint. Launch will bring you to the first 
 breakpoint. DO NOT USE CONTINUE TO GET TO THE FIRST BREAKPOINT.`;
 
-const debugStepSchema = z.object({
-    type: z.enum(["setBreakpoint", "removeBreakpoint", "continue", "evaluate", "launch"]).describe(""),
-    file: z.string(),
-    line: z.number().optional(),
-    expression: z.string().describe("An expression to be evaluated in the stack frame of the current breakpoint").optional(),
-    condition: z.string().describe("If needed, a breakpoint condition may be specified to only stop on a breakpoint for some given condition.").optional(),
-});
+const debugStepSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("setBreakpoint"),
+    file: z
+      .string()
+      .describe(
+        "Use absolute local file paths (e.g. `/home/user/...`). Do not use `vscode-remote://` URIs.",
+      ),
+    line: z.number(),
+    condition: z
+      .string()
+      .optional()
+      .describe(
+        "Use to set conditional breakpoints.",
+      ),
+  }),
+  z.object({
+    type: z.literal("removeBreakpoint"),
+    line: z.number().describe("Remove breakpoints across all files at this line.")
+  }),
+  z.object({
+    type: z.literal("continue")
+  }),
+  z.object({
+    type: z.literal("evaluate"),
+    expression: z.string().describe("Evaluated at the active stack frame.")
+  }),
+  z.object({
+    type: z.literal("launch")
+  })
+]);
 
 const debugInputSchema = {
     steps: z.array(debugStepSchema),

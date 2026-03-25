@@ -5,6 +5,7 @@ import * as http from 'http';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { z } from 'zod';
 
 // Try to read port from config file, fallback to default
 function getPortFromConfig(): number {
@@ -94,84 +95,45 @@ you are, if paused on a breakpoint. Make sure to find and get the contents of an
 Only use continue when ready to move to the next breakpoint. Launch will bring you to the first 
 breakpoint. DO NOT USE CONTINUE TO GET TO THE FIRST BREAKPOINT.`;
 
-const listFilesDescription = "List all files in the workspace. Use this to find any requested files.";
 
-const getFileContentDescription = `Get file content with line numbers - you likely need to list files 
-to understand what files are available. Be careful to use absolute paths.`;
+const debugStepSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("setBreakpoint"),
+    file: z
+      .string()
+      .describe(
+        "Use absolute local file paths (e.g. `/home/user/...`). Do not use `vscode-remote://` URIs.",
+      ),
+    line: z.number(),
+    condition: z
+      .string()
+      .optional()
+      .describe(
+        "Use to set conditional breakpoints.",
+      ),
+  }),
+  z.object({
+    type: z.literal("removeBreakpoint"),
+    line: z.number().describe("Remove breakpoints across all files at this line.")
+  }),
+  z.object({
+    type: z.literal("continue")
+  }),
+  z.object({
+    type: z.literal("evaluate"),
+    expression: z.string().describe("Evaluated at the active stack frame.")
+  }),
+  z.object({
+    type: z.literal("launch")
+  })
+]);
 
-// Zod schemas for the tools
-const listFilesInputSchema = {
-    type: "object",
-    properties: {
-        includePatterns: {
-            type: "array",
-            items: { type: "string" },
-            description: "Glob patterns to include (e.g. ['**/*.js'])"
-        },
-        excludePatterns: {
-            type: "array",
-            items: { type: "string" },
-            description: "Glob patterns to exclude (e.g. ['node_modules/**'])"
-        }
-    }
-};
-
-const getFileContentInputSchema = {
-    type: "object",
-    properties: {
-        path: {
-            type: "string",
-            description: "Path to the file. IT MUST BE AN ABSOLUTE PATH AND MATCH THE OUTPUT OF listFiles"
-        }
-    },
-    required: ["path"]
-};
-
-const debugStepSchema = {
-    type: "array",
-    items: {
-        type: "object",
-        properties: {
-            type: {
-                type: "string",
-                enum: ["setBreakpoint", "removeBreakpoint", "continue", "evaluate", "launch"],
-                description: ""
-            },
-            file: { type: "string" },
-            line: { type: "number" },
-            expression: {
-                description: "An expression to be evaluated in the stack frame of the current breakpoint",
-                type: "string"
-            },
-            condition: {
-                description: "If needed, a breakpoint condition may be specified to only stop on a breakpoint for some given condition.",
-                type: "string"
-            },
-        },
-        required: ["type", "file"]
-    }
-};
-
-const debugInputSchema = {
-    type: "object",
-    properties: {
-        steps: debugStepSchema
-    },
-    required: ["steps"]
-};
+const debugInputSchema = z.object({
+    steps: z.array(debugStepSchema),
+});
 
 // Main tools array with Zod schemas
 const tools = [
-    {
-        name: "listFiles",
-        description: listFilesDescription, // Make sure this variable is defined in your code
-        inputSchema: listFilesInputSchema,
-    },
-    {
-        name: "getFileContent",
-        description: getFileContentDescription, // Make sure this variable is defined in your code
-        inputSchema: getFileContentInputSchema,
-    },
     {
         name: "debug",
         description: debugDescription, // Make sure this variable is defined in your code
