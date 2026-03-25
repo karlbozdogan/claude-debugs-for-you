@@ -318,9 +318,12 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
       { internalFramesCounter: 0, acc: "" },
     );
     // Handle trailing internal frames
-    return res.acc + (res.internalFramesCounter > 0
-      ? `... (${res.internalFramesCounter} internal frames)\n`
-      : "");
+    return (
+      res.acc +
+      (res.internalFramesCounter > 0
+        ? `... (${res.internalFramesCounter} internal frames)\n`
+        : "")
+    );
   }
 
   private async handleLaunch(): Promise<string> {
@@ -338,18 +341,27 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
     await vscode.debug.startDebugging(workspaceFolder, "claude_debug");
 
     // Wait for a breakpoint to be hit
-    const { session, threadId } = await this.waitForStackFrame();
+    const frame = await this.waitForStackFrame();
+    if (!frame) {
+      return "Debuggee has exited.";
+    }
+    const { session, threadId } = frame;
 
     const stack = await session.customRequest("stackTrace", { threadId });
-    return `Success. Stopped:\n${DebugServer.formatStackFrames(DebugServer.cleanStackFrames(stack.stackFrames))}`;
+    return `Launched successfully. Stopped:\n${DebugServer.formatStackFrames(DebugServer.cleanStackFrames(stack.stackFrames))}`;
   }
 
-  private async waitForStackFrame(): Promise<vscode.DebugStackFrame> {
+  private async waitForStackFrame(): Promise<
+    vscode.DebugStackFrame | undefined
+  > {
     let handle!: vscode.Disposable;
-    const res = await new Promise<vscode.DebugStackFrame>((res) => {
+    const res = await new Promise<vscode.DebugStackFrame | undefined>((res) => {
       handle = vscode.debug.onDidChangeActiveStackItem((stackItem) => {
         if (stackItem instanceof vscode.DebugStackFrame) {
           res(stackItem);
+        }
+        if (typeof stackItem === "undefined") {
+          res(undefined);
         }
       });
     });
@@ -358,18 +370,27 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
   }
 
   private async handleContinue() {
-    const session = vscode.debug.activeDebugSession;
+    let session = vscode.debug.activeDebugSession;
     if (!session) {
       throw new Error("No active debug session");
     }
 
     // Get the current thread ID (required by DAP spec)
     const threads = await session.customRequest("threads");
-    const threadId = threads.threads[0].id;
+    let threadId = threads.threads[0].id;
 
     // Continue with the thread ID
     await session.customRequest("continue", { threadId });
-    return "Success.";
+
+    // Wait for a breakpoint to be hit
+    const frame = await this.waitForStackFrame();
+    if (!frame) {
+      return "Debuggee has exited.";
+    }
+    ({ session, threadId } = frame);
+
+    const stack = await session.customRequest("stackTrace", { threadId });
+    return `Continued successfully. Stopped:\n${DebugServer.formatStackFrames(DebugServer.cleanStackFrames(stack.stackFrames))}`;
   }
 
   private async handleSetBreakpoint(
