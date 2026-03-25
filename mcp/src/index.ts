@@ -104,7 +104,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     return {
         content: [{
             type: "text",
-            text: JSON.stringify(response)
+            text: Array.isArray(response) ? response.join("\n") : response
         }]
     };
 });

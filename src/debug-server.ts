@@ -354,6 +354,9 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
       }
       return false;
     });
+    if (bps.length === 0) {
+      return `No breakpoint on line ${payload.line}`;
+    }
     vscode.debug.removeBreakpoints(bps);
     return "Success.";
   }
