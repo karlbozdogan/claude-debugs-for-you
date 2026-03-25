@@ -2,6 +2,8 @@ import * as net from 'net';
 import * as http from 'http';
 import * as vscode from 'vscode';
 import { EventEmitter } from 'events';
+import * as debug from '../common/tools/debug';
+import {tools} from '../common/tools/tools';
 import { z } from 'zod';
 
 interface DebugServerEvents {
@@ -32,56 +34,6 @@ interface ToolRequest {
     arguments?: any;
 }
 
-const debugDescription = `Execute a debug plan with breakpoints, launch, continues, and expression 
-evaluation. ONLY SET BREAKPOINTS BEFORE LAUNCHING OR WHILE PAUSED. Be careful to keep track of where 
-you are, if paused on a breakpoint. Make sure to find and get the contents of any requested files. 
-Only use continue when ready to move to the next breakpoint. Launch will bring you to the first 
-breakpoint. DO NOT USE CONTINUE TO GET TO THE FIRST BREAKPOINT.`;
-
-const debugStepSchema = z.discriminatedUnion("type", [
-  z.object({
-    type: z.literal("setBreakpoint"),
-    file: z
-      .string()
-      .describe(
-        "Use absolute local file paths (e.g. `/home/user/...`). Do not use `vscode-remote://` URIs.",
-      ),
-    line: z.number(),
-    condition: z
-      .string()
-      .optional()
-      .describe(
-        "Use to set conditional breakpoints.",
-      ),
-  }),
-  z.object({
-    type: z.literal("removeBreakpoint"),
-    line: z.number().describe("Remove breakpoints across all files at this line.")
-  }),
-  z.object({
-    type: z.literal("continue")
-  }),
-  z.object({
-    type: z.literal("evaluate"),
-    expression: z.string().describe("Evaluated at the active stack frame.")
-  }),
-  z.object({
-    type: z.literal("launch")
-  })
-]);
-
-const debugInputSchema = {
-    steps: z.array(debugStepSchema),
-};
-
-// Main tools array with Zod schemas
-const tools = [
-    {
-        name: "debug",
-        description: debugDescription, // Make sure this variable is defined in your code
-        inputSchema: debugInputSchema,
-    },
-];
 export class DebugServer extends EventEmitter implements DebugServerEvents {
     private server: net.Server | null = null;
     private port: number = 4711;
@@ -100,9 +52,11 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
         });
 
         // Setup MCP tools to use our existing handlers
-        this.mcpServer.tool("debug", debugDescription, debugInputSchema, async (args: any) => {
-            const results = await this.handleDebug(args);
-            return { content: [{ type: "text", text: results.join('\n') }] };
+        this.mcpServer.registerTool("debug",
+            {description: debug.description, inputSchema: debug.inputSchema},
+            async (args: any) => {
+                const results = await this.handleDebug(args);
+                return { content: [{ type: "text", text: results.join('\n') }] };
         });
     }
 

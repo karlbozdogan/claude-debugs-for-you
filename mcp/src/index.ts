@@ -5,7 +5,8 @@ import * as http from 'http';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { z } from 'zod';
+import {tools} from '../../common/tools/tools';
+
 
 // Try to read port from config file, fallback to default
 function getPortFromConfig(): number {
@@ -88,58 +89,6 @@ const server = new Server(
     }
 );
 
-
-const debugDescription = `Execute a debug plan with breakpoints, launch, continues, and expression 
-evaluation. ONLY SET BREAKPOINTS BEFORE LAUNCHING OR WHILE PAUSED. Be careful to keep track of where 
-you are, if paused on a breakpoint. Make sure to find and get the contents of any requested files. 
-Only use continue when ready to move to the next breakpoint. Launch will bring you to the first 
-breakpoint. DO NOT USE CONTINUE TO GET TO THE FIRST BREAKPOINT.`;
-
-
-const debugStepSchema = z.discriminatedUnion("type", [
-  z.object({
-    type: z.literal("setBreakpoint"),
-    file: z
-      .string()
-      .describe(
-        "Use absolute local file paths (e.g. `/home/user/...`). Do not use `vscode-remote://` URIs.",
-      ),
-    line: z.number(),
-    condition: z
-      .string()
-      .optional()
-      .describe(
-        "Use to set conditional breakpoints.",
-      ),
-  }),
-  z.object({
-    type: z.literal("removeBreakpoint"),
-    line: z.number().describe("Remove breakpoints across all files at this line.")
-  }),
-  z.object({
-    type: z.literal("continue")
-  }),
-  z.object({
-    type: z.literal("evaluate"),
-    expression: z.string().describe("Evaluated at the active stack frame.")
-  }),
-  z.object({
-    type: z.literal("launch")
-  })
-]);
-
-const debugInputSchema = z.object({
-    steps: z.array(debugStepSchema),
-});
-
-// Main tools array with Zod schemas
-const tools = [
-    {
-        name: "debug",
-        description: debugDescription, // Make sure this variable is defined in your code
-        inputSchema: debugInputSchema,
-    },
-];
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {
     return { tools };

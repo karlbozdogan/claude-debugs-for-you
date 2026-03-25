@@ -23,7 +23,7 @@ async function build() {
       js: '#!/usr/bin/env node',
     },
     loader: { '.ts': 'ts' },
-    tsconfig: 'tsconfig.json',
+    tsconfig: '../tsconfig.json',
   });
 
   // Make the output file executable
