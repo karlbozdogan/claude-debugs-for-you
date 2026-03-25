@@ -61,16 +61,9 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
     });
 
     // Setup MCP tools to use our existing handlers
-    this.mcpServer.registerTool(cont.tool.name, cont.tool, async () => {
-      return this.handleContinue();
-    });
-    this.mcpServer.registerTool(
-      setBreakpoint.tool.name,
-      setBreakpoint.tool,
-      async (payload) => {
-        return this.handleSetBreakpoint(payload);
-      },
-    );
+    // this.mcpServer.registerTool(cont.tool.name, cont.tool, async () => {
+    //   return this.handleContinue();
+    // });
   }
 
   get isRunning(): boolean {
@@ -235,16 +228,18 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
   }
 
   // Helper method to handle tool calls
-  private async handleCommand(request: ToolRequest): Promise<any> {
+  private async handleCommand(request: ToolRequest): Promise<string> {
     switch (request.tool) {
       case "setBreakpoint":
-        return await this.handleSetBreakpoint(
+        return this.handleSetBreakpoint(
           setBreakpoint.tool.inputSchema.parse(request.arguments),
         );
       case "removeBreakpoint":
-        return await this.handleRemoveBreakpoint(
+        return this.handleRemoveBreakpoint(
           removeBreakpoint.tool.inputSchema.parse(request.arguments),
         );
+      case "launch":
+        return this.handleLaunch();
       case "continue":
         return await this.handleContinue();
       default:
@@ -252,53 +247,17 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
     }
   }
 
-  private async handleLaunch(payload: {
-    program: string;
-    args?: string[];
-  }): Promise<string> {
+  private async handleLaunch(): Promise<string> {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) {
       throw new Error("No workspace folder found");
-    }
-
-    // Try to get launch configurations
-    const launchConfig = vscode.workspace.getConfiguration(
-      "launch",
-      workspaceFolder.uri,
-    );
-    const configurations = launchConfig.get<any[]>("configurations");
-
-    if (!configurations || configurations.length === 0) {
-      throw new Error("No debug configurations found in launch.json");
-    }
-
-    // Get the first configuration and update it with the current file
-    const config = { ...configurations[0] };
-
-    // Replace ${file} with actual file path if it exists in the configuration
-    Object.keys(config).forEach((key) => {
-      if (typeof config[key] === "string") {
-        config[key] = config[key].replace("${file}", payload.program);
-      }
-    });
-
-    // Replace ${workspaceFolder} in environment variables if they exist
-    if (config.env) {
-      Object.keys(config.env).forEach((key) => {
-        if (typeof config.env[key] === "string") {
-          config.env[key] = config.env[key].replace(
-            "${workspaceFolder}",
-            workspaceFolder.uri.fsPath,
-          );
-        }
-      });
     }
 
     // Check if we're already debugging
     let session = vscode.debug.activeDebugSession;
     if (!session) {
       // Start debugging using the configured launch configuration
-      await vscode.debug.startDebugging(workspaceFolder, config);
+      await vscode.debug.startDebugging(workspaceFolder, "claude_debug");
 
       // Wait for session to be available
       session = await this.waitForDebugSession();
@@ -326,10 +285,9 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
           return `Debug session started - Stopped at breakpoint on line ${topFrame.line}`;
         }
       }
-      return "Debug session started";
+      return "Success.";
     } catch (err) {
-      console.error("Error checking breakpoint status:", err);
-      return "Debug session started";
+      return "Error checking breakpoint status:" + err;
     }
   }
 
@@ -365,7 +323,7 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
 
     // Continue with the thread ID
     await session.customRequest("continue", { threadId });
-    return { content: [{ type: "text" as const, text: "Success." }] };
+    return "Success.";
   }
 
   private async handleSetBreakpoint(
@@ -384,7 +342,7 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
       payload.condition,
     );
     vscode.debug.addBreakpoints([bp]);
-    return { content: [{ type: "text" as const, text: "Success." }] };
+    return "Success.";
   }
 
   private async handleRemoveBreakpoint(
@@ -397,7 +355,7 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
       return false;
     });
     vscode.debug.removeBreakpoints(bps);
-    return { content: [{ type: "text" as const, text: "Success." }] };
+    return "Success.";
   }
 
   private async handleDebug(payload: {
@@ -465,10 +423,6 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
             );
           }
           break;
-        }
-
-        case "launch": {
-          await this.handleLaunch({ program: step.file });
         }
       }
     }
