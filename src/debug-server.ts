@@ -14,7 +14,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 
 export interface DebugCommand {
-    command: 'listFiles' | 'getFileContent' | 'debug';
+    command: 'debug';
     payload: any;
 }
 
@@ -38,21 +38,6 @@ you are, if paused on a breakpoint. Make sure to find and get the contents of an
 Only use continue when ready to move to the next breakpoint. Launch will bring you to the first 
 breakpoint. DO NOT USE CONTINUE TO GET TO THE FIRST BREAKPOINT.`;
 
-const listFilesDescription = "List all files in the workspace. Use this to find any requested files.";
-
-const getFileContentDescription = `Get file content with line numbers - you likely need to list files 
-to understand what files are available. Be careful to use absolute paths.`;
-
-// Zod schemas for the tools
-const listFilesInputSchema = {
-    includePatterns: z.array(z.string()).describe("Glob patterns to include (e.g. ['**/*.js'])").optional(),
-    excludePatterns: z.array(z.string()).describe("Glob patterns to exclude (e.g. ['node_modules/**'])").optional(),
-};
-
-const getFileContentInputSchema = {
-    path: z.string().describe("Path to the file. IT MUST BE AN ABSOLUTE PATH AND MATCH THE OUTPUT OF listFiles"),
-};
-
 const debugStepSchema = z.object({
     type: z.enum(["setBreakpoint", "removeBreakpoint", "continue", "evaluate", "launch"]).describe(""),
     file: z.string(),
@@ -67,16 +52,6 @@ const debugInputSchema = {
 
 // Main tools array with Zod schemas
 const tools = [
-    {
-        name: "listFiles",
-        description: listFilesDescription, // Make sure this variable is defined in your code
-        inputSchema: listFilesInputSchema,
-    },
-    {
-        name: "getFileContent",
-        description: getFileContentDescription, // Make sure this variable is defined in your code
-        inputSchema: getFileContentInputSchema,
-    },
     {
         name: "debug",
         description: debugDescription, // Make sure this variable is defined in your code
@@ -101,16 +76,6 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
         });
 
         // Setup MCP tools to use our existing handlers
-        this.mcpServer.tool("listFiles", listFilesDescription, listFilesInputSchema, async (args: any) => {
-            const files = await this.handleListFiles(args);
-            return { content: [{ type: "text", text: JSON.stringify(files) }] };
-        });
-
-        this.mcpServer.tool("getFileContent", getFileContentDescription, getFileContentInputSchema, async (args: any) => {
-            const content = await this.handleGetFile(args);
-            return { content: [{ type: "text", text: content }] };
-        });
-
         this.mcpServer.tool("debug", debugDescription, debugInputSchema, async (args: any) => {
             const results = await this.handleDebug(args);
             return { content: [{ type: "text", text: results.join('\n') }] };
@@ -276,10 +241,6 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
     // Helper method to handle tool calls
     private async handleCommand(request: ToolRequest): Promise<any> {
         switch (request.tool) {
-            case 'listFiles':
-                return await this.handleListFiles(request.arguments);
-            case 'getFileContent':
-                return await this.handleGetFile(request.arguments);
             case 'debug':
                 return await this.handleDebug(request.arguments);
             default:
@@ -381,34 +342,6 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
 
             checkSession();
         });
-    }
-
-    private async handleListFiles(payload: {
-        includePatterns?: string[],
-        excludePatterns?: string[]
-    }): Promise<string[]> {
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders) {
-            throw new Error('No workspace folders found');
-        }
-
-        const includePatterns = payload.includePatterns || ['**/*'];
-        const excludePatterns = payload.excludePatterns || ['**/node_modules/**', '**/.git/**'];
-
-        const files: string[] = [];
-        for (const folder of workspaceFolders) {
-            const relativePattern = new vscode.RelativePattern(folder, `{${includePatterns.join(',')}}`);
-            const foundFiles = await vscode.workspace.findFiles(relativePattern, `{${excludePatterns.join(',')}}`);
-            files.push(...foundFiles.map(file => file.fsPath));
-        }
-
-        return files;
-    }
-
-    private async handleGetFile(payload: { path: string }): Promise<string> {
-        const doc = await vscode.workspace.openTextDocument(payload.path);
-        const lines = doc.getText().split('\n');
-        return lines.map((line, i) => `${i + 1}: ${line}`).join('\n');
     }
 
     private async handleDebug(payload: { steps: DebugStep[] }): Promise<string[]> {
