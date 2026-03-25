@@ -240,7 +240,9 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
           removeBreakpoint.tool.inputSchema.parse(request.arguments),
         );
       case "variables":
-        return this.handleVariables(variables.tool.inputSchema.parse(request.arguments));
+        return this.handleVariables(
+          variables.tool.inputSchema.parse(request.arguments),
+        );
       case "evaluate":
         return this.handleEvaluate(
           evaluate.tool.inputSchema.parse(request.arguments),
@@ -254,68 +256,105 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
     }
   }
 
+  private static cleanStackFrames(stackFrames_: any) {
+    const stackFramesSchema = z.array(
+      z.object({
+        column: z.number(),
+        line: z.number(),
+        name: z.string(),
+        source: z
+          .object({
+            path: z.string().optional(),
+          })
+          .loose()
+          .optional(),
+        presentationHint: z.string().optional(),
+      }),
+    );
+
+    const stackFrames = stackFramesSchema.parse(stackFrames_);
+
+    const stackFramesTransformed = stackFrames.map((frame) => {
+      if (!frame.source?.path) {
+        return frame;
+      }
+      let pathURL;
+      try {
+        pathURL = new URL(frame.source.path);
+      } catch (e) {
+        return frame;
+      }
+      return {
+        ...frame,
+        source: {
+          ...frame.source,
+          path:
+            pathURL.protocol === "vscode-remote:"
+              ? pathURL.pathname
+              : pathURL.toString(),
+        },
+      };
+    });
+
+    return stackFramesTransformed;
+  }
+
+  private static formatStackFrames(
+    stackFrames: ReturnType<typeof DebugServer.cleanStackFrames>,
+  ): string {
+    // Collapse internal frames
+    const res = stackFrames.reduce(
+      ({ internalFramesCounter, acc }, frame) => {
+        if (frame.presentationHint === "subtle") {
+          internalFramesCounter++;
+          return { internalFramesCounter, acc };
+        } else {
+          return {
+            internalFramesCounter: 0,
+            acc: `${acc}${internalFramesCounter > 0 ? `... (${internalFramesCounter} internal frames)\n` : ""}${JSON.stringify(frame)}\n`,
+          };
+        }
+      },
+      { internalFramesCounter: 0, acc: "" },
+    );
+    // Handle trailing internal frames
+    return res.acc + (res.internalFramesCounter > 0
+      ? `... (${res.internalFramesCounter} internal frames)\n`
+      : "");
+  }
+
   private async handleLaunch(): Promise<string> {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) {
       throw new Error("No workspace folder found");
     }
 
-    // Check if we're already debugging
-    let session = vscode.debug.activeDebugSession;
-    if (!session) {
-      // Start debugging using the configured launch configuration
-      await vscode.debug.startDebugging(workspaceFolder, "claude_debug");
-
-      // Wait for session to be available
-      session = await this.waitForDebugSession();
+    // Return an error message if we are already debugging
+    if (vscode.debug.activeDebugSession) {
+      return "Already debugging.";
     }
 
-    // Check if we're at a breakpoint
-    try {
-      const threads = await session.customRequest("threads");
-      const threadId = threads?.threads?.[0]?.id;
+    // Start debugging using the well-known launch configuration
+    await vscode.debug.startDebugging(workspaceFolder, "claude_debug");
 
-      const stack = await session.customRequest("stackTrace", { threadId });
-      if (stack.stackFrames && stack.stackFrames.length > 0) {
-        const topFrame = stack.stackFrames[0];
-        const currentBreakpoints = vscode.debug.breakpoints.filter((bp) => {
-          if (bp instanceof vscode.SourceBreakpoint) {
-            return (
-              bp.location.uri.toString() === topFrame.source.path &&
-              bp.location.range.start.line === topFrame.line - 1
-            );
-          }
-          return false;
-        });
+    // Wait for a breakpoint to be hit
+    const { session, threadId } = await this.waitForStackFrame();
 
-        if (currentBreakpoints.length > 0) {
-          return `Debug session started - Stopped at breakpoint on line ${topFrame.line}`;
-        }
-      }
-      return "Success.";
-    } catch (err) {
-      return "Error checking breakpoint status:" + err;
-    }
+    const stack = await session.customRequest("stackTrace", { threadId });
+    return `Success. Stopped:\n${DebugServer.formatStackFrames(DebugServer.cleanStackFrames(stack.stackFrames))}`;
   }
 
-  private waitForDebugSession(): Promise<vscode.DebugSession> {
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error("Timeout waiting for debug session"));
-      }, 5000);
-
-      const checkSession = () => {
-        const session = vscode.debug.activeDebugSession;
-        if (session) {
-          clearTimeout(timeout);
-          resolve(session);
-        } else {
-          setTimeout(checkSession, 100);
+  private async waitForStackFrame(): Promise<vscode.DebugStackFrame> {
+    let handle!: vscode.Disposable;
+    const res = await new Promise<vscode.DebugStackFrame>((res) => {
+      handle = vscode.debug.onDidChangeActiveStackItem((stackItem) => {
+        if (stackItem instanceof vscode.DebugStackFrame) {
+          res(stackItem);
         }
-      };
-
-      checkSession();
+      });
     });
+    handle.dispose();
+    return res;
   }
 
   private async handleContinue() {
@@ -368,14 +407,16 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
     return "Success.";
   }
 
-  private async handleVariables(payload: z.infer<typeof variables.tool.inputSchema>) {
+  private async handleVariables(
+    payload: z.infer<typeof variables.tool.inputSchema>,
+  ) {
     const session = vscode.debug.activeDebugSession;
     if (!session) {
       return "No active debug session.";
     }
 
     const response = await session.customRequest("variables", {
-          variablesReference: payload.variablesReference
+      variablesReference: payload.variablesReference,
     });
 
     return `Variables result: ${JSON.stringify(response)}`;
