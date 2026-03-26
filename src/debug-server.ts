@@ -230,30 +230,42 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
 
   // Helper method to handle tool calls
   private async handleCommand(request: ToolRequest): Promise<string> {
-    switch (request.tool) {
-      case "setBreakpoint":
-        return this.handleSetBreakpoint(
-          setBreakpoint.tool.inputSchema.parse(request.arguments),
-        );
-      case "removeBreakpoint":
-        return this.handleRemoveBreakpoint(
-          removeBreakpoint.tool.inputSchema.parse(request.arguments),
-        );
-      case "variables":
-        return this.handleVariables(
-          variables.tool.inputSchema.parse(request.arguments),
-        );
-      case "evaluate":
-        return this.handleEvaluate(
-          evaluate.tool.inputSchema.parse(request.arguments),
-        );
-      case "launch":
-        return this.handleLaunch();
-      case "continue":
-        return await this.handleContinue();
-      default:
-        throw new Error(`Unknown tool: ${request.tool}`);
-    }
+    const logger = vscode.window.createOutputChannel("MCP Debug", {
+      log: true,
+    });
+    logger.info(`<-- Tool call: ${JSON.stringify(request)}`);
+    const result = await (() => {
+      try {
+        switch (request.tool) {
+          case "setBreakpoint":
+            return this.handleSetBreakpoint(
+              setBreakpoint.tool.inputSchema.parse(request.arguments),
+            );
+          case "removeBreakpoint":
+            return this.handleRemoveBreakpoint(
+              removeBreakpoint.tool.inputSchema.parse(request.arguments),
+            );
+          case "variables":
+            return this.handleVariables(
+              variables.tool.inputSchema.parse(request.arguments),
+            );
+          case "evaluate":
+            return this.handleEvaluate(
+              evaluate.tool.inputSchema.parse(request.arguments),
+            );
+          case "launch":
+            return this.handleLaunch();
+          case "continue":
+            return this.handleContinue();
+          default:
+            return `Unknown tool: ${request.tool}`;
+        }
+      } catch (e) {
+        return `Error: ${e}`;
+      }
+    })();
+    logger.info(`--> Tool result: ${result}`);
+    return result;
   }
 
   private static cleanStackFrames(stackFrames_: any) {
@@ -308,7 +320,7 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
     const res = stackFrames.reduce(
       ({ internalFramesCounter, acc }, frame) => {
         if (frame.presentationHint === "subtle") {
-          return { internalFramesCounter: internalFramesCounter+1, acc };
+          return { internalFramesCounter: internalFramesCounter + 1, acc };
         } else {
           return {
             internalFramesCounter: 0,
