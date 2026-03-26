@@ -259,15 +259,16 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
   private static cleanStackFrames(stackFrames_: any) {
     const stackFramesSchema = z.array(
       z.object({
-        column: z.number(),
         line: z.number(),
-        name: z.string(),
         source: z
           .object({
+            name: z.string().optional(),
             path: z.string().optional(),
           })
           .loose()
           .optional(),
+        name: z.string(),
+        column: z.number(),
         presentationHint: z.string().optional(),
       }),
     );
@@ -306,8 +307,7 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
     const res = stackFrames.reduce(
       ({ internalFramesCounter, acc }, frame) => {
         if (frame.presentationHint === "subtle") {
-          internalFramesCounter++;
-          return { internalFramesCounter, acc };
+          return { internalFramesCounter: internalFramesCounter+1, acc };
         } else {
           return {
             internalFramesCounter: 0,
