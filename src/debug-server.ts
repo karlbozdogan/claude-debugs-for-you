@@ -267,6 +267,7 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
           })
           .loose()
           .optional(),
+        id: z.number(),
         name: z.string(),
         column: z.number(),
         presentationHint: z.string().optional(),
@@ -451,32 +452,10 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
       return "No active debug session.";
     }
 
-    const activeStackItem = vscode.debug.activeStackItem;
-
-    // Grab the active frameId
-    let frameId = undefined;
-    if (activeStackItem instanceof vscode.DebugStackFrame) {
-      frameId = activeStackItem.frameId;
-    }
-
-    // In case activeStackItem.frameId is falsey
-    if (!frameId) {
-      // Get the current stack frame
-      const frames = await session.customRequest("stackTrace", {
-        threadId: 1, // You might need to get the actual threadId
-      });
-
-      if (!frames || !frames.stackFrames || frames.stackFrames.length === 0) {
-        return "No stack frame available";
-      }
-
-      frameId = frames.stackFrames[0].id; // Usually use the top frame
-    }
-
     try {
       const response = await session.customRequest("evaluate", {
         expression: payload.expression,
-        frameId: frameId,
+        frameId: payload.frameId,
         context: "watch",
       });
 
