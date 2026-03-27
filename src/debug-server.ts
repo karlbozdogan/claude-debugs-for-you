@@ -18,7 +18,6 @@ interface DebugServerEvents {
   emit(event: "stopped"): boolean;
 }
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 
 export interface DebugCommand {
   command: "debug";
@@ -48,7 +47,6 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
   private server: net.Server | null = null;
   private port: number = 4711;
   private portConfigPath: string | null = null;
-  private activeTransports: Record<string, SSEServerTransport> = {};
   private mcpServer: McpServer;
   private _isRunning: boolean = false;
 
@@ -190,29 +188,6 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
             );
           }
         });
-        return;
-      }
-
-      // SSE endpoint
-      if (req.method === "GET" && req.url === "/sse") {
-        const transport = new SSEServerTransport("/messages", res);
-        this.activeTransports[transport.sessionId] = transport;
-        await this.mcpServer.connect(transport);
-        res.on("close", () => {
-          delete this.activeTransports[transport.sessionId];
-        });
-        return;
-      }
-
-      // Message endpoint for SSE
-      if (req.method === "POST" && req.url?.startsWith("/messages")) {
-        const url = new URL(req.url, "http://localhost");
-        const sessionId = url.searchParams.get("sessionId");
-        if (!sessionId || !this.activeTransports[sessionId]) {
-          res.writeHead(404).end("Session not found");
-          return;
-        }
-        await this.activeTransports[sessionId].handlePostMessage(req, res);
         return;
       }
 
@@ -496,11 +471,6 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
         resolve();
         return;
       }
-
-      Object.values(this.activeTransports).forEach((transport) => {
-        transport.close();
-      });
-      this.activeTransports = {};
 
       this.server.close(() => {
         this.server = null;
