@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { ToolConfig } from './types';
 
 const name = "continue";
-const description = "Continue execution from a breakpoint, wait until execution pauses and return the stack trace.";
+const description = "Continue execution from a breakpoint.";
 
 const inputSchema = z.object({});
 

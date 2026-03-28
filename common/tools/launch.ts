@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { ToolConfig } from './types';
 
 const name = "launch";
-const description = "Start the debug session, wait until execution pauses and return the stack trace.";
+const description = "Start the debug session.";
 
 const inputSchema = z.object({});
 

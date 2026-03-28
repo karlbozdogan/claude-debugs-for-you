@@ -7,6 +7,7 @@ import * as evaluate from "../common/tools/evaluate";
 import * as launch from "../common/tools/launch";
 import * as removeBreakpoint from "../common/tools/removeBreakpoint";
 import * as setBreakpoint from "../common/tools/setBreakpoint";
+import * as waitForBreakpoint from "../common/tools/waitForBreakpoint";
 import {
   McpServer,
   ToolCallback,
@@ -33,7 +34,6 @@ interface DebugServerEvents {
   emit(event: "started"): boolean;
   emit(event: "stopped"): boolean;
 }
-
 
 export class DebugServer extends EventEmitter implements DebugServerEvents {
   private port: number = 4711;
@@ -112,15 +112,15 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
 
   async start(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const server = this.app
-        .listen(this.port, (err) => {
-          if (err) {
-            reject(err);
-          } else {
+      const server = this.app.listen(this.port, (err) => {
+        if (err) {
+          reject(err);
+        } else {
           this.server = server;
           this.emit("started");
-          resolve();}
-        });
+          resolve();
+        }
+      });
     });
   }
 
@@ -160,6 +160,7 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
     registerToolWrapper(evaluate.tool, handleEvaluate);
     registerToolWrapper(launch.tool, handleLaunch);
     registerToolWrapper(cont.tool, handleContinue);
+    registerToolWrapper(waitForBreakpoint.tool, handleWaitForBreakpoint);
   }
 
   stop(): Promise<void> {
@@ -263,7 +264,10 @@ async function handleLaunch(): Promise<string> {
   // Start debugging using the well-known launch configuration
   await vscode.debug.startDebugging(workspaceFolder, "claude_debug");
 
-  // Wait for a breakpoint to be hit
+  return `Launched.`;
+}
+
+async function handleWaitForBreakpoint(): Promise<string> {
   const frame = await waitForStackFrame();
   if (!frame) {
     return "Debuggee has exited.";
@@ -271,12 +275,21 @@ async function handleLaunch(): Promise<string> {
   const { session, threadId } = frame;
 
   const stack = await session.customRequest("stackTrace", { threadId });
-  return `Launched successfully. Stopped:\n${formatStackFrames(cleanStackFrames(stack.stackFrames))}`;
+  return `Stopped:\n${formatStackFrames(cleanStackFrames(stack.stackFrames))}`;
 }
 
 async function waitForStackFrame(): Promise<
   vscode.DebugStackFrame | undefined
 > {
+  if (!vscode.debug.activeDebugSession) {
+    return undefined;
+  }
+
+  const stackItem = vscode.debug.activeStackItem;
+  if (stackItem instanceof vscode.DebugStackFrame) {
+    return stackItem;
+  }
+
   let handle!: vscode.Disposable;
   const res = await new Promise<vscode.DebugStackFrame | undefined>((res) => {
     handle = vscode.debug.onDidChangeActiveStackItem((stackItem) => {
@@ -305,15 +318,7 @@ async function handleContinue() {
   // Continue with the thread ID
   await session.customRequest("continue", { threadId });
 
-  // Wait for a breakpoint to be hit
-  const frame = await waitForStackFrame();
-  if (!frame) {
-    return "Debuggee has exited.";
-  }
-  ({ session, threadId } = frame);
-
-  const stack = await session.customRequest("stackTrace", { threadId });
-  return `Continued successfully. Stopped:\n${formatStackFrames(cleanStackFrames(stack.stackFrames))}`;
+  return `Continued.`;
 }
 
 async function handleSetBreakpoint(
