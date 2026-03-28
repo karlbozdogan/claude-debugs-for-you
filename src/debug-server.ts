@@ -286,6 +286,25 @@ async function handleWaitForBreakpoint(): Promise<string> {
   return `Stopped:\n${formatStackFrames(cleanStackFrames(stack.stackFrames))}`;
 }
 
+// Source - https://stackoverflow.com/a/46675277
+// Posted by Drew Noakes, modified by community. See post 'Timeline' for change history
+// Retrieved 2026-03-28, License - CC BY-SA 4.0
+function withTimeout<T>(millis: number, promise: Promise<T>): Promise<T> {
+    let timeout: NodeJS.Timeout;
+    const timeoutPromise = new Promise<T>((resolve, reject) =>
+        timeout = setTimeout(
+            () => reject(`Timed out after ${millis} ms.`),
+            millis));
+    return Promise.race([
+        promise,
+        timeoutPromise
+    ]).finally(() => {
+        if (timeout) {
+            clearTimeout(timeout);
+        }
+    });
+};
+
 async function waitForStackFrame(): Promise<
   vscode.DebugStackFrame | undefined
 > {
@@ -298,8 +317,8 @@ async function waitForStackFrame(): Promise<
     return stackItem;
   }
 
-  let handle!: vscode.Disposable;
-  const res = await new Promise<vscode.DebugStackFrame | undefined>((res) => {
+  let handle: vscode.Disposable;
+  const sfPromise = new Promise<vscode.DebugStackFrame | undefined>((res) => {
     handle = vscode.debug.onDidChangeActiveStackItem((stackItem) => {
       if (stackItem instanceof vscode.DebugStackFrame) {
         res(stackItem);
@@ -309,8 +328,7 @@ async function waitForStackFrame(): Promise<
       }
     });
   });
-  handle.dispose();
-  return res;
+  return withTimeout(15000, sfPromise).finally(() => handle?.dispose());
 }
 
 async function handleContinue() {
