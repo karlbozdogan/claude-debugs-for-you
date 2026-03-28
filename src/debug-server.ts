@@ -5,6 +5,7 @@ import * as cont from "../common/tools/continue";
 import * as variables from "../common/tools/variables";
 import * as evaluate from "../common/tools/evaluate";
 import * as launch from "../common/tools/launch";
+import * as stop from "../common/tools/stop";
 import * as removeBreakpoint from "../common/tools/removeBreakpoint";
 import * as setBreakpoint from "../common/tools/setBreakpoint";
 import * as waitForBreakpoint from "../common/tools/waitForBreakpoint";
@@ -159,6 +160,7 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
     registerToolWrapper(variables.tool, handleVariables);
     registerToolWrapper(evaluate.tool, handleEvaluate);
     registerToolWrapper(launch.tool, handleLaunch);
+    registerToolWrapper(stop.tool, handleStop);
     registerToolWrapper(cont.tool, handleContinue);
     registerToolWrapper(waitForBreakpoint.tool, handleWaitForBreakpoint);
   }
@@ -265,6 +267,12 @@ async function handleLaunch(): Promise<string> {
   await vscode.debug.startDebugging(workspaceFolder, "claude_debug");
 
   return `Launched.`;
+}
+
+async function handleStop(): Promise<string> {
+  await vscode.debug.stopDebugging();
+
+  return `Stopped debugging.`;
 }
 
 async function handleWaitForBreakpoint(): Promise<string> {
