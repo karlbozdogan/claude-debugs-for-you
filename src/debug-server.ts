@@ -9,6 +9,7 @@ import * as stop from "../common/tools/stop";
 import * as removeBreakpoint from "../common/tools/removeBreakpoint";
 import * as setBreakpoint from "../common/tools/setBreakpoint";
 import * as waitForBreakpoint from "../common/tools/waitForBreakpoint";
+import * as getWorkspace from "../common/tools/getWorkspace";
 import {
   McpServer,
   ToolCallback,
@@ -128,7 +129,7 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
   private addTools(server: McpServer) {
     function registerToolWrapper<Input extends AnySchema>(
       config: ToolConfig<Input>,
-      tool: (input: SchemaOutput<Input>) => Promise<string>,
+      tool: (input: SchemaOutput<Input>) => Promise<string> | string,
     ) {
       const toolWrapped = (async (
         input: SchemaOutput<Input>,
@@ -163,6 +164,7 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
     registerToolWrapper(stop.tool, handleStop);
     registerToolWrapper(cont.tool, handleContinue);
     registerToolWrapper(waitForBreakpoint.tool, handleWaitForBreakpoint);
+    registerToolWrapper(getWorkspace.tool, handleGetWorkspace);
   }
 
   stop(): Promise<void> {
@@ -252,6 +254,14 @@ function formatStackFrames(
   );
 }
 
+function handleGetWorkspace(): string {
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+  if (!workspaceFolder) {
+    return "No workspace folder found";
+  }
+  return workspaceFolder.uri.fsPath;
+}
+
 async function handleLaunch(): Promise<string> {
   const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
   if (!workspaceFolder) {
@@ -290,20 +300,20 @@ async function handleWaitForBreakpoint(): Promise<string> {
 // Posted by Drew Noakes, modified by community. See post 'Timeline' for change history
 // Retrieved 2026-03-28, License - CC BY-SA 4.0
 function withTimeout<T>(millis: number, promise: Promise<T>): Promise<T> {
-    let timeout: NodeJS.Timeout;
-    const timeoutPromise = new Promise<T>((resolve, reject) =>
-        timeout = setTimeout(
-            () => reject(`Timed out after ${millis} ms.`),
-            millis));
-    return Promise.race([
-        promise,
-        timeoutPromise
-    ]).finally(() => {
-        if (timeout) {
-            clearTimeout(timeout);
-        }
-    });
-};
+  let timeout: NodeJS.Timeout;
+  const timeoutPromise = new Promise<T>(
+    (resolve, reject) =>
+      (timeout = setTimeout(
+        () => reject(`Timed out after ${millis} ms.`),
+        millis,
+      )),
+  );
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  });
+}
 
 async function waitForStackFrame(): Promise<
   vscode.DebugStackFrame | undefined
