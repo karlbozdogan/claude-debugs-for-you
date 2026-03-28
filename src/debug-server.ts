@@ -8,8 +8,9 @@ import * as launch from "./tools/launch";
 import * as stop from "./tools/stop";
 import * as removeBreakpoint from "./tools/removeBreakpoint";
 import * as setBreakpoint from "./tools/setBreakpoint";
-import * as waitForBreakpoint from "./tools/waitForBreakpoint";
+import * as waitForBreakpoint from "./tools/wait";
 import * as getWorkspace from "./tools/getWorkspace";
+import * as getSessionState from "./tools/getSessionState";
 import {
   McpServer,
   ToolCallback,
@@ -164,6 +165,7 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
     registerToolWrapper(cont.tool, cont.handle);
     registerToolWrapper(waitForBreakpoint.tool, waitForBreakpoint.handle);
     registerToolWrapper(getWorkspace.tool, getWorkspace.handle);
+    registerToolWrapper(getSessionState.tool, getSessionState.handle);
   }
 
   stop(): Promise<void> {

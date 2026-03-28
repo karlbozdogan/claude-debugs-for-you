@@ -45,6 +45,7 @@
     "express": "^5.2.1"
   },
   "devDependencies": {
+    "@vscode/debugprotocol": "^1.68.0",
     "@types/express": "^5.0.6",
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
