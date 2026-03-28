@@ -1,15 +1,15 @@
 import * as http from "http";
 import * as vscode from "vscode";
 import { EventEmitter } from "events";
-import * as cont from "../common/tools/continue";
-import * as variables from "../common/tools/variables";
-import * as evaluate from "../common/tools/evaluate";
-import * as launch from "../common/tools/launch";
-import * as stop from "../common/tools/stop";
-import * as removeBreakpoint from "../common/tools/removeBreakpoint";
-import * as setBreakpoint from "../common/tools/setBreakpoint";
-import * as waitForBreakpoint from "../common/tools/waitForBreakpoint";
-import * as getWorkspace from "../common/tools/getWorkspace";
+import * as cont from "./tools/continue";
+import * as variables from "./tools/variables";
+import * as evaluate from "./tools/evaluate";
+import * as launch from "./tools/launch";
+import * as stop from "./tools/stop";
+import * as removeBreakpoint from "./tools/removeBreakpoint";
+import * as setBreakpoint from "./tools/setBreakpoint";
+import * as waitForBreakpoint from "./tools/waitForBreakpoint";
+import * as getWorkspace from "./tools/getWorkspace";
 import {
   McpServer,
   ToolCallback,
@@ -27,7 +27,7 @@ import {
   SchemaOutput,
   ZodRawShapeCompat,
 } from "@modelcontextprotocol/sdk/server/zod-compat.js";
-import { ToolConfig } from "../common/tools/types";
+import { ToolConfig } from "./tools/types";
 import { logger } from "./logger";
 
 interface DebugServerEvents {
