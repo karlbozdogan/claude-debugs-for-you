@@ -1,6 +1,7 @@
 import { z } from "zod";
 import * as vscode from "vscode";
 import { ToolConfig } from "./types";
+import { DebugSessionRegistry } from "./debugSessionRegistry";
 
 const name = "removeBreakpoint";
 const description = "Remove breakpoints across all files at a given line.";
@@ -9,7 +10,7 @@ const inputSchema = z.object({
   line: z.coerce.number(),
 });
 
-export async function handle(payload: z.infer<typeof inputSchema>) {
+export async function handle(_: DebugSessionRegistry, payload: z.infer<typeof inputSchema>) {
   const bps = vscode.debug.breakpoints.filter((bp) => {
     if (bp instanceof vscode.SourceBreakpoint) {
       return bp.location.range.start.line === payload.line - 1;

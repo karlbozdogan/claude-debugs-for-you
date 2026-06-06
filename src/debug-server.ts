@@ -10,13 +10,12 @@ import * as removeBreakpoint from "./tools/removeBreakpoint";
 import * as setBreakpoint from "./tools/setBreakpoint";
 import * as waitForBreakpoint from "./tools/wait";
 import * as getWorkspace from "./tools/getWorkspace";
-import * as getSessionState from "./tools/getSessionState";
+import * as getSessionStates from "./tools/getSessionStates";
 import {
   McpServer,
   ToolCallback,
 } from "@modelcontextprotocol/sdk/server/mcp.js";
 import express from "express";
-import { z } from "zod";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import {
   CallToolResult,
@@ -29,6 +28,7 @@ import {
 } from "@modelcontextprotocol/sdk/server/zod-compat.js";
 import { ToolConfig } from "./tools/types";
 import { logger } from "./logger";
+import { DebugSessionRegistry } from "./tools/debugSessionRegistry";
 
 interface DebugServerEvents {
   on(event: "started", listener: () => void): this;
@@ -38,15 +38,18 @@ interface DebugServerEvents {
 }
 
 export class DebugServer extends EventEmitter implements DebugServerEvents {
-  private port: number = 4711;
+  private port: number;
   private server: http.Server | null = null;
   private transports: { [sessionId: string]: StreamableHTTPServerTransport } =
     {};
   private app: express.Express;
+  private debugSessionRegistry: DebugSessionRegistry;
 
-  constructor(port?: number) {
+  constructor(port: number, debugSessionRegistry: DebugSessionRegistry) {
     super();
-    this.port = port || 4711;
+    this.port = port;
+
+    this.debugSessionRegistry = debugSessionRegistry;
 
     this.app = express();
     this.app.use(express.json());
@@ -128,8 +131,9 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
 
   private addTools(server: McpServer) {
     function registerToolWrapper<Input extends AnySchema>(
+      debugSessionRegistry: DebugSessionRegistry,
       config: ToolConfig<Input>,
-      tool: (input: SchemaOutput<Input>) => Promise<string> | string,
+      tool: (debugSessionRegistry: DebugSessionRegistry, input: SchemaOutput<Input>) => Promise<string> | string,
     ) {
       const toolWrapped = (async (
         input: SchemaOutput<Input>,
@@ -139,7 +143,7 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
           `<-- Tool call  : ${config.name}: ${JSON.stringify(input)}`,
         );
         try {
-          const res = await tool(input);
+          const res = await tool(debugSessionRegistry, input);
           logger.info(`--> Tool result: ${config.name}: ${res}`);
           return {
             content: [{ type: "text" as const, text: res }],
@@ -156,16 +160,16 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
       server.registerTool(config.name, config, toolWrapped);
     }
 
-    registerToolWrapper(setBreakpoint.tool, setBreakpoint.handle);
-    registerToolWrapper(removeBreakpoint.tool, removeBreakpoint.handle);
-    registerToolWrapper(variables.tool, variables.handle);
-    registerToolWrapper(evaluate.tool, evaluate.handle);
-    registerToolWrapper(launch.tool, launch.handle);
-    registerToolWrapper(stop.tool, stop.handle);
-    registerToolWrapper(cont.tool, cont.handle);
-    registerToolWrapper(waitForBreakpoint.tool, waitForBreakpoint.handle);
-    registerToolWrapper(getWorkspace.tool, getWorkspace.handle);
-    registerToolWrapper(getSessionState.tool, getSessionState.handle);
+    registerToolWrapper(this.debugSessionRegistry, setBreakpoint.tool, setBreakpoint.handle);
+    registerToolWrapper(this.debugSessionRegistry, removeBreakpoint.tool, removeBreakpoint.handle);
+    registerToolWrapper(this.debugSessionRegistry, variables.tool, variables.handle);
+    registerToolWrapper(this.debugSessionRegistry, evaluate.tool, evaluate.handle);
+    registerToolWrapper(this.debugSessionRegistry, launch.tool, launch.handle);
+    registerToolWrapper(this.debugSessionRegistry, stop.tool, stop.handle);
+    registerToolWrapper(this.debugSessionRegistry, cont.tool, cont.handle);
+    registerToolWrapper(this.debugSessionRegistry, waitForBreakpoint.tool, waitForBreakpoint.handle);
+    registerToolWrapper(this.debugSessionRegistry, getWorkspace.tool, getWorkspace.handle);
+    registerToolWrapper(this.debugSessionRegistry, getSessionStates.tool, getSessionStates.handle);
   }
 
   stop(): Promise<void> {

@@ -45,7 +45,16 @@ async function waitForStackFrame() {
     session: vscode.DebugSession;
     threadId: number;
   }>((res, rej) => {
-    // We make similar assumptions to getSessionState here.
+    // Neither DAP nor vscode has a mean of getting the current state of the
+    // debuggee, so we have to make some assumptions here:
+    // 1) That if the debuggee is stopped, a stack frame is selected (not
+    // necessarily true - it might as well be a thread that it selected).
+    // 2) If a stack frame is not selected but there is an active debug session,
+    // the debuggee is running (most importantly, a thread might be selected
+    // even if the debuggee is running).
+    // 3) If a stack frame is selected, this is the stack frame of the thread
+    // that stopped (not necessarily true - the user might have manually selected
+    // another thread's stack frame).
     handle = vscode.debug.onDidChangeActiveStackItem((stackItem) => {
       if (stackItem instanceof vscode.DebugStackFrame) {
         res(stackItem);

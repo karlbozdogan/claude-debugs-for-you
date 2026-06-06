@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { DebugServer } from "./debug-server";
 import { logger } from "./logger";
+import { DebugSessionRegistry } from "./tools/debugSessionRegistry";
 
 let serverGlobal: DebugServer | null = null;
 
@@ -8,7 +9,8 @@ export function activate(context: vscode.ExtensionContext) {
   const config = vscode.workspace.getConfiguration("mcpDebug");
   const port = config.get<number>("port") ?? 4711;
 
-  const server = new DebugServer(port);
+  const debugSessionRegistry = new DebugSessionRegistry(context);
+  const server = new DebugServer(port, debugSessionRegistry);
   serverGlobal = server;
 
   // Create status bar item

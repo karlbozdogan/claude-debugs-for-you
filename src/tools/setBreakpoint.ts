@@ -1,6 +1,7 @@
 import { z } from "zod";
 import * as vscode from "vscode";
 import { ToolConfig } from "./types";
+import { DebugSessionRegistry } from "./debugSessionRegistry";
 
 const name = "setBreakpoint";
 const description =
@@ -12,7 +13,7 @@ const inputSchema = z.object({
   condition: z.string().optional(),
 });
 
-export async function handle(payload: z.infer<typeof inputSchema>) {
+export async function handle(_: DebugSessionRegistry, payload: z.infer<typeof inputSchema>) {
   // Open the file and make it active
   const document = await vscode.workspace.openTextDocument(payload.file);
   const editor = await vscode.window.showTextDocument(document);

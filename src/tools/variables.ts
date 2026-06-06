@@ -1,5 +1,6 @@
 import { z } from "zod";
 import * as vscode from "vscode";
+import { DebugSessionRegistry } from "./debugSessionRegistry";
 
 const name = "variables";
 const description =
@@ -10,7 +11,7 @@ const inputSchema = z.object({
   variablesReference: z.coerce.number(),
 });
 
-export async function handle(payload: z.infer<typeof inputSchema>) {
+export async function handle(debugSessionRegistry: DebugSessionRegistry, payload: z.infer<typeof inputSchema>) {
   const session = vscode.debug.activeDebugSession;
   if (!session) {
     return "No active debug session.";
