@@ -70,3 +70,31 @@ export function formatStackFrames(
       : "")
   );
 }
+
+export function formatStackFrames2(
+  stackFrames: ReturnType<typeof cleanStackFrames>,
+): unknown[] {
+  // Collapse internal frames
+  const res = [] as unknown[];
+  let internalFramesCounter = 0;
+  for (const frame of stackFrames) {
+    if (frame.presentationHint === "subtle") {
+      internalFramesCounter++;
+    } else {
+      if (internalFramesCounter > 0) {
+        res.push({ numOmittedInternalFrames: internalFramesCounter });
+        internalFramesCounter = 0;
+      }
+      res.push({
+        id: frame.id,
+        line: frame.line,
+        name: frame.name,
+        file: frame.source?.name ?? frame.source?.path ?? "<unknown>",
+      });
+    }
+  }
+  if (internalFramesCounter > 0) {
+     res.push({ numOmittedInternalFrames: internalFramesCounter });
+  }
+  return res;
+}

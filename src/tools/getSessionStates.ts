@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ToolConfig } from "./types";
 import { stackTrace } from "../utils/dap/stackTrace";
-import { cleanStackFrames, formatStackFrames } from "../utils/stackTraceFormat";
+import { cleanStackFrames, formatStackFrames2 } from "../utils/stackTraceFormat";
 import { DebugSessionRegistry } from "./debugSessionRegistry";
 
 const name = "getSessionStates";
@@ -30,21 +30,19 @@ export async function handle(
         debugSessionRegistry.getSessions(),
         async (sessionState) => {
           switch (sessionState.state.type) {
-            case "pending":
-              return "Initializing the debug session.";
+            case "initializing":
             case "running":
-              return "Debuggee running.";
             case "exited":
-              return "Debuggee has exited.";
+              return {state: sessionState.state.type};
             case "stopped":
               const stack = await stackTrace(
                 sessionState.session,
                 sessionState.state.threadId,
               );
-              const trace = formatStackFrames(
+              const frames = formatStackFrames2(
                 cleanStackFrames(stack.stackFrames),
               );
-              return `Stopped:\n${trace}`;
+              return {state: "stopped", frames};
             default:
               sessionState.state satisfies never;
           }

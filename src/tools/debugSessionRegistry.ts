@@ -7,12 +7,12 @@ import { logger } from "../logger";
 
 export interface DebugSessionState {
   readonly session: vscode.DebugSession;
-  readonly state: {type: "pending"} | {type: "running"} | {type: "stopped"; threadId: number;} | {type: "exited"};
+  readonly state: {type: "initializing"} | {type: "running"} | {type: "stopped"; threadId: number;} | {type: "exited"};
 }
 
 class DebugSessionStateImpl implements DebugSessionState {
   readonly session: vscode.DebugSession;
-  state: DebugSessionState["state"] = {type: "pending"};
+  state: DebugSessionState["state"] = {type: "initializing"};
 
   constructor(session: vscode.DebugSession) {
     this.session = session;
@@ -38,10 +38,6 @@ export class DebugSessionRegistry {
 
   getSessions(): ReadonlyMap<string, DebugSessionState> {
     return this._sessions;
-  }
-
-  getSession(id: string): DebugSessionState | undefined {
-    return this._sessions.get(id);
   }
 }
 
