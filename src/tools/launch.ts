@@ -2,8 +2,10 @@ import { z } from "zod";
 import * as vscode from "vscode";
 import { ToolConfig } from "./types";
 
+const configName = "mcp_debug";
+
 const name = "launch";
-const description = "Start the debug session.";
+const description = `Start the debug configuration with the name \`${configName}\`.`;
 
 const inputSchema = z.object({});
 
@@ -19,7 +21,7 @@ export async function handle(): Promise<string> {
   }
 
   // Start debugging using the well-known launch configuration
-  await vscode.debug.startDebugging(workspaceFolder, "claude_debug");
+  await vscode.debug.startDebugging(workspaceFolder, configName);
 
   return `Launched.`;
 }
