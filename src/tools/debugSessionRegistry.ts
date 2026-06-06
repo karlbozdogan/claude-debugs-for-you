@@ -5,20 +5,20 @@ import { ExitedSchema } from "../dap/events/exited";
 import { StoppedSchema } from "../dap/events/stopped";
 import { logger } from "../logger";
 
-export type InitializingState = { type: "initializing"};
-export type RunningState = {type: "running"};
-export type StoppedState = {type: "stopped"; threadId: number;};
-export type ExitedState = {type: "exited"};
+export type InitializingState = { type: "initializing" };
+export type RunningState = { type: "running" };
+export type StoppedState = { type: "stopped"; threadId: number };
+export type ExitedState = { type: "exited" };
 
 export interface DebugSessionState {
   readonly session: vscode.DebugSession;
-  
+
   readonly state: InitializingState | RunningState | StoppedState | ExitedState;
 }
 
 class DebugSessionStateImpl implements DebugSessionState {
   readonly session: vscode.DebugSession;
-  state: DebugSessionState["state"] = {type: "initializing"};
+  state: DebugSessionState["state"] = { type: "initializing" };
 
   constructor(session: vscode.DebugSession) {
     this.session = session;
@@ -44,6 +44,25 @@ export class DebugSessionRegistry {
 
   getSessions(): ReadonlyMap<string, DebugSessionState> {
     return this._sessions;
+  }
+
+  getSession(id: string | undefined): DebugSessionState {
+    if (typeof id === "undefined") {
+      if (this._sessions.size === 0) {
+        throw new Error("There are no debug sessions.");
+      } else if (this._sessions.size === 1) {
+        return this._sessions.values().next().value!;
+      } else {
+        throw new Error(
+          "There are multiple debug sessions. You need to pick a specific one. Use `getSessionStates` if necessary.",
+        );
+      }
+    }
+    const session = this._sessions.get(id);
+    if (!session) {
+      throw new Error("Session not found. If it existed, it might have exited.");
+    }
+    return session;
   }
 }
 
@@ -77,13 +96,13 @@ class DebugSessionTracker {
       logger.debug("Got DAP event", this.state.session.id, event);
       switch (event.event) {
         case "continued":
-          this.state.state = {type: "running"};
+          this.state.state = { type: "running" };
           break;
         case "exited":
-          this.state.state = {type: "exited"};
+          this.state.state = { type: "exited" };
           break;
         case "stopped":
-          this.state.state = {type: "stopped", threadId: event.body.threadId};
+          this.state.state = { type: "stopped", threadId: event.body.threadId };
           break;
         default:
           event satisfies never;

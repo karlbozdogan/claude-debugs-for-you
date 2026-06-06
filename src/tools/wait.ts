@@ -4,6 +4,7 @@ import { ToolConfig } from "./types";
 import { stackTrace } from "../utils/dap/stackTrace";
 import { formatStackFrames, cleanStackFrames } from "../utils/stackTraceFormat";
 import { logger } from "../logger";
+import { DebugSessionRegistry } from "./debugSessionRegistry";
 
 const name = "wait";
 const description =
@@ -30,8 +31,8 @@ async function withTimeout<T>(
   }
 }
 
-async function waitForStackFrame() {
-  if (!vscode.debug.activeDebugSession) {
+async function waitForStackFrame(debugSessionRegistry: DebugSessionRegistry) {
+  if (debugSessionRegistry.getSessions().size === 0) {
     throw Error("No active debug session.");
   }
 
@@ -70,8 +71,10 @@ async function waitForStackFrame() {
   ).finally(() => handle?.dispose());
 }
 
-export async function handle(): Promise<string> {
-  const frame = await waitForStackFrame();
+export async function handle(
+  debugSessionRegistry: DebugSessionRegistry,
+): Promise<string> {
+  const frame = await waitForStackFrame(debugSessionRegistry);
   const { session, threadId } = frame;
 
   const stack = await stackTrace(session, threadId);

@@ -7,15 +7,13 @@ const description =
   "Retrieves all child variables for the given variable reference.";
 
 const inputSchema = z.object({
+  sessionId: z.string().optional(),
   // Claude sometimes passes numbers as strings by mistake
   variablesReference: z.coerce.number(),
 });
 
 export async function handle(debugSessionRegistry: DebugSessionRegistry, payload: z.infer<typeof inputSchema>) {
-  const session = vscode.debug.activeDebugSession;
-  if (!session) {
-    return "No active debug session.";
-  }
+  const session = debugSessionRegistry.getSession(payload.sessionId).session;
 
   const response = await session.customRequest("variables", {
     variablesReference: payload.variablesReference,

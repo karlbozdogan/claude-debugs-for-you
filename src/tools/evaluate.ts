@@ -7,15 +7,16 @@ const name = "evaluate";
 const description = "Evaluate a given expression at a given stack frame.";
 
 const inputSchema = z.object({
+  sessionId: z.string().optional(),
   expression: z.string(),
   frameId: z.coerce.number(),
 });
 
-export async function handle(debugSessionRegistry: DebugSessionRegistry, payload: z.infer<typeof inputSchema>) {
-  const session = vscode.debug.activeDebugSession;
-  if (!session) {
-    return "No active debug session.";
-  }
+export async function handle(
+  debugSessionRegistry: DebugSessionRegistry,
+  payload: z.infer<typeof inputSchema>,
+) {
+  const session = debugSessionRegistry.getSession(payload.sessionId).session;
 
   try {
     const response = await session.customRequest("evaluate", {
