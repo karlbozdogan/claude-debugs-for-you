@@ -1,7 +1,10 @@
 import { z } from "zod";
 import { ToolConfig } from "./types";
 import { stackTrace } from "../utils/dap/stackTrace";
-import { cleanStackFrames, formatStackFrames2 } from "../utils/stackTraceFormat";
+import {
+  cleanStackFrames,
+  formatStackFrames2,
+} from "../utils/stackTraceFormat";
 import { DebugSessionRegistry } from "./debugSessionRegistry";
 
 const name = "getSessionStates";
@@ -24,28 +27,35 @@ async function mapMapValuesAsync<K, V, U>(
 export async function handle(
   debugSessionRegistry: DebugSessionRegistry,
 ): Promise<string> {
+  const sessions = debugSessionRegistry.getSessions();
+  if (sessions.size === 0) {
+    return "There are no debug sessions.";
+  }
+
   return JSON.stringify(
     Object.fromEntries(
       await mapMapValuesAsync(
-        debugSessionRegistry.getSessions(),
+        sessions,
         async (sessionState) => {
-          switch (sessionState.state.type) {
-            case "initializing":
-            case "running":
-            case "exited":
-              return {state: sessionState.state.type};
-            case "stopped":
-              const stack = await stackTrace(
-                sessionState.session,
-                sessionState.state.threadId,
-              );
-              const frames = formatStackFrames2(
-                cleanStackFrames(stack.stackFrames),
-              );
-              return {state: "stopped", frames};
-            default:
-              sessionState.state satisfies never;
-          }
+          return {
+            state: sessionState.state.type,
+            name: sessionState.session.name,
+            pid: sessionState.session.configuration.pid ?? "<unknown>",
+            ...(sessionState.state.type === "stopped"
+              ? {
+                  frames: await (async (stoppedState) => {
+                    const stack = await stackTrace(
+                      sessionState.session,
+                      stoppedState.threadId,
+                    );
+                    const frames = formatStackFrames2(
+                      cleanStackFrames(stack.stackFrames),
+                    );
+                    return frames;
+                  })(sessionState.state),
+                }
+              : {}),
+          };
         },
       ),
     ),

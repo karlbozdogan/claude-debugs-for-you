@@ -5,9 +5,15 @@ import { ExitedSchema } from "../dap/events/exited";
 import { StoppedSchema } from "../dap/events/stopped";
 import { logger } from "../logger";
 
+export type InitializingState = { type: "initializing"};
+export type RunningState = {type: "running"};
+export type StoppedState = {type: "stopped"; threadId: number;};
+export type ExitedState = {type: "exited"};
+
 export interface DebugSessionState {
   readonly session: vscode.DebugSession;
-  readonly state: {type: "initializing"} | {type: "running"} | {type: "stopped"; threadId: number;} | {type: "exited"};
+  
+  readonly state: InitializingState | RunningState | StoppedState | ExitedState;
 }
 
 class DebugSessionStateImpl implements DebugSessionState {
