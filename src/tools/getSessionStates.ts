@@ -1,10 +1,7 @@
 import { z } from "zod";
 import { ToolConfig } from "./types";
 import { stackTrace } from "../utils/dap/stackTrace";
-import {
-  cleanStackFrames,
-  formatStackFrames,
-} from "../utils/stackTraceFormat";
+import { cleanStackFrames, formatStackFrames } from "../utils/stackTraceFormat";
 import { DebugSessionRegistry } from "./debugSessionRegistry";
 
 const name = "getSessionStates";
@@ -12,6 +9,17 @@ const description =
   "Get the state of the debug sessions, including a stack trace for the stopped thread per debug session in which the debuggee is stopped.";
 
 const inputSchema = z.object({});
+
+function mapMapValues<K, V, U>(
+  map: ReadonlyMap<K, V>,
+  f: (v: V) => U,
+): Map<K, U> {
+  const res = new Map<K, U>();
+  for (const [k, v] of map.entries()) {
+    res.set(k, f(v));
+  }
+  return res;
+}
 
 async function mapMapValuesAsync<K, V, U>(
   map: ReadonlyMap<K, V>,
@@ -34,30 +42,39 @@ export async function handle(
 
   return JSON.stringify(
     Object.fromEntries(
-      await mapMapValuesAsync(
-        sessions,
-        async (sessionState) => {
-          return {
-            state: sessionState.state.type,
-            name: sessionState.session.name,
-            pid: sessionState.session.configuration.pid ?? "<unknown>",
-            ...(sessionState.state.type === "stopped"
-              ? {
-                  frames: await (async (stoppedState) => {
-                    const stack = await stackTrace(
-                      sessionState.session,
-                      stoppedState.threadId,
-                    );
-                    const frames = formatStackFrames(
-                      cleanStackFrames(stack.stackFrames),
-                    );
-                    return frames;
-                  })(sessionState.state),
-                }
-              : {}),
-          };
-        },
-      ),
+      await mapMapValuesAsync(sessions, async (sessionState) => {
+        return {
+          state: sessionState.state.type,
+          name: sessionState.session.name,
+          breakpoints: Object.fromEntries(
+            mapMapValues(sessionState.breakpoints, (breakpoints) =>
+              breakpoints.map((b) => {
+                return {
+                  line: b.line,
+                  verified: b.verified,
+                  message: b.message,
+                  condition: b.condition,
+                };
+              }),
+            ).entries(),
+          ),
+          pid: sessionState.session.configuration.pid ?? "<unknown>",
+          ...(sessionState.state.type === "stopped"
+            ? {
+                frames: await (async (stoppedState) => {
+                  const stack = await stackTrace(
+                    sessionState.session,
+                    stoppedState.threadId,
+                  );
+                  const frames = formatStackFrames(
+                    cleanStackFrames(stack.stackFrames),
+                  );
+                  return frames;
+                })(sessionState.state),
+              }
+            : {}),
+        };
+      }),
     ),
   );
 }

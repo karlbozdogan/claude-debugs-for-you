@@ -9,3 +9,5 @@ export const BreakpointEventSchema = z.object({
         breakpoint: BreakpointSchema
     })
 }).extend(EventSchema.shape);
+
+export type BreakpointEvent = z.infer<typeof BreakpointEventSchema>;
