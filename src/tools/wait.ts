@@ -1,8 +1,6 @@
 import { z } from "zod";
 import * as vscode from "vscode";
 import { ToolConfig } from "./types";
-import { stackTrace } from "../utils/dap/stackTrace";
-import { formatStackFrames, cleanStackFrames } from "../utils/stackTraceFormat";
 import {
   DebugSessionRegistry,
   DebugSessionState,

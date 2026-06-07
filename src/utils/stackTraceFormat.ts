@@ -47,32 +47,6 @@ export function cleanStackFrames(stackFrames_: any) {
 
 export function formatStackFrames(
   stackFrames: ReturnType<typeof cleanStackFrames>,
-): string {
-  // Collapse internal frames
-  const res = stackFrames.reduce(
-    ({ internalFramesCounter, acc }, frame) => {
-      if (frame.presentationHint === "subtle") {
-        return { internalFramesCounter: internalFramesCounter + 1, acc };
-      } else {
-        return {
-          internalFramesCounter: 0,
-          acc: `${acc}${internalFramesCounter > 0 ? `... (${internalFramesCounter} internal frames)\n` : ""}${JSON.stringify(frame)}\n`,
-        };
-      }
-    },
-    { internalFramesCounter: 0, acc: "" },
-  );
-  // Handle trailing internal frames
-  return (
-    res.acc +
-    (res.internalFramesCounter > 0
-      ? `... (${res.internalFramesCounter} internal frames)`
-      : "")
-  );
-}
-
-export function formatStackFrames2(
-  stackFrames: ReturnType<typeof cleanStackFrames>,
 ): unknown[] {
   // Collapse internal frames
   const res = [] as unknown[];

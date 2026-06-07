@@ -3,7 +3,7 @@ import { ToolConfig } from "./types";
 import { stackTrace } from "../utils/dap/stackTrace";
 import {
   cleanStackFrames,
-  formatStackFrames2,
+  formatStackFrames,
 } from "../utils/stackTraceFormat";
 import { DebugSessionRegistry } from "./debugSessionRegistry";
 
@@ -48,7 +48,7 @@ export async function handle(
                       sessionState.session,
                       stoppedState.threadId,
                     );
-                    const frames = formatStackFrames2(
+                    const frames = formatStackFrames(
                       cleanStackFrames(stack.stackFrames),
                     );
                     return frames;
