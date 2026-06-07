@@ -109,8 +109,6 @@ export function activate(context: vscode.ExtensionContext) {
       }
     }
   }
-
-  void startServer();
 }
 
 export function deactivate() {
