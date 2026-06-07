@@ -87,7 +87,9 @@ export function activate(context: vscode.ExtensionContext) {
           "Failed to start debug server. Another server is likely already running in a different VS Code window.",
         );
       } else {
-        vscode.window.showErrorMessage(`Failed to start debug server: ${err}`);
+        const errorMessage = `Failed to start debug server: ${err}`;
+        vscode.window.showErrorMessage(errorMessage);
+        logger.error(errorMessage);
       }
     }
   }
