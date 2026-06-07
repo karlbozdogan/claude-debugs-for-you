@@ -27,8 +27,12 @@ class DebugSessionStateImpl implements DebugSessionState {
 
 export class DebugSessionRegistry {
   private readonly _sessions = new Map<string, DebugSessionStateImpl>();
+  private readonly _onStateChanged =
+    new vscode.EventEmitter<string>();
+  readonly onStateChanged = this._onStateChanged.event;
 
   constructor(context: vscode.ExtensionContext) {
+    context.subscriptions.push(this._onStateChanged);
     const self = this;
 
     vscode.debug.registerDebugAdapterTrackerFactory("*", {
@@ -36,8 +40,15 @@ export class DebugSessionRegistry {
         logger.debug("Debug session started", session);
         const debugSessionState = new DebugSessionStateImpl(session);
         self._sessions.set(session.id, debugSessionState);
+        self._onStateChanged.fire(session.id);
         const delState = () => self._sessions.delete(session.id);
-        return new DebugSessionTracker(debugSessionState, delState);
+        const fireStateChanged = () =>
+          self._onStateChanged.fire(session.id);
+        return new DebugSessionTracker(
+          debugSessionState,
+          delState,
+          fireStateChanged,
+        );
       },
     });
   }
@@ -46,12 +57,18 @@ export class DebugSessionRegistry {
     return this._sessions;
   }
 
+  tryGetSession(id: string): DebugSessionState | undefined {
+    return this._sessions.get(id);
+  }
+
   getSessionOrTheStopped(id: string | undefined): DebugSessionState {
     if (typeof id === "undefined") {
       if (this._sessions.size === 0) {
         throw new Error("There are no debug sessions.");
       }
-      const stoppedSessions = [...this._sessions.values()].filter((x) => x.state.type === "stopped");
+      const stoppedSessions = [...this._sessions.values()].filter(
+        (x) => x.state.type === "stopped",
+      );
       if (stoppedSessions.length === 1) {
         return stoppedSessions[0];
       } else {
@@ -60,9 +77,11 @@ export class DebugSessionRegistry {
         );
       }
     }
-    const session = this._sessions.get(id);
+    const session = this.tryGetSession(id);
     if (!session) {
-      throw new Error("Session not found. If it existed, it might have exited.");
+      throw new Error(
+        "Session not found. If it existed, it might have exited.",
+      );
     }
     return session;
   }
@@ -77,10 +96,16 @@ const eventSchema = z.discriminatedUnion("event", [
 class DebugSessionTracker {
   state: DebugSessionStateImpl;
   delState: () => void;
+  fireStateChanged: () => void;
 
-  constructor(state: DebugSessionStateImpl, delState: () => void) {
+  constructor(
+    state: DebugSessionStateImpl,
+    delState: () => void,
+    fireStateChanged: () => void,
+  ) {
     this.state = state;
     this.delState = delState;
+    this.fireStateChanged = fireStateChanged;
   }
 
   onWillReceiveMessage(msg: any) {
@@ -109,6 +134,7 @@ class DebugSessionTracker {
         default:
           event satisfies never;
       }
+      this.fireStateChanged();
     } catch (e) {
       logger.error("Caught exception while handling DAP event", e);
     }
@@ -116,6 +142,7 @@ class DebugSessionTracker {
 
   onWillStopSession() {
     logger.debug("Debug session terminated", this.state.session.id);
+    this.fireStateChanged();
     this.delState();
   }
 }
