@@ -27,30 +27,43 @@ class DebugSessionStateImpl implements DebugSessionState {
 
 export class DebugSessionRegistry {
   private readonly _sessions = new Map<string, DebugSessionStateImpl>();
-  private readonly _onStateChanged =
-    new vscode.EventEmitter<string>();
+  private _trackerFactoryRegistration: vscode.Disposable | undefined;
+  private readonly _onStateChanged = new vscode.EventEmitter<string>();
   readonly onStateChanged = this._onStateChanged.event;
 
   constructor(context: vscode.ExtensionContext) {
     context.subscriptions.push(this._onStateChanged);
+  }
+
+  startTracking() {
+    if (this._trackerFactoryRegistration) {
+      return;
+    }
+
     const self = this;
 
-    vscode.debug.registerDebugAdapterTrackerFactory("*", {
-      createDebugAdapterTracker(session: vscode.DebugSession) {
-        logger.debug("Debug session started", session);
-        const debugSessionState = new DebugSessionStateImpl(session);
-        self._sessions.set(session.id, debugSessionState);
-        self._onStateChanged.fire(session.id);
-        const delState = () => self._sessions.delete(session.id);
-        const fireStateChanged = () =>
+    this._trackerFactoryRegistration =
+      vscode.debug.registerDebugAdapterTrackerFactory("*", {
+        createDebugAdapterTracker(session: vscode.DebugSession) {
+          logger.debug("Debug session started", session);
+          const debugSessionState = new DebugSessionStateImpl(session);
+          self._sessions.set(session.id, debugSessionState);
           self._onStateChanged.fire(session.id);
-        return new DebugSessionTracker(
-          debugSessionState,
-          delState,
-          fireStateChanged,
-        );
-      },
-    });
+          const delState = () => self._sessions.delete(session.id);
+          const fireStateChanged = () => self._onStateChanged.fire(session.id);
+          return new DebugSessionTracker(
+            debugSessionState,
+            delState,
+            fireStateChanged,
+          );
+        },
+      });
+  }
+
+  stopTracking() {
+    this._trackerFactoryRegistration?.dispose();
+    this._trackerFactoryRegistration = undefined;
+    this._sessions.clear();
   }
 
   getSessions(): ReadonlyMap<string, DebugSessionState> {

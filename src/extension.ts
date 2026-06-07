@@ -17,15 +17,16 @@ export function activate(context: vscode.ExtensionContext) {
   const statusBarItem = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Right,
   );
+  statusBarItem.command = "mcpDebug.toggleServer";
 
   // Update status bar with server state
   function updateStatusBar(running: boolean) {
     if (running) {
       statusBarItem.text = "$(check) Claude Debugs For You";
-      statusBarItem.tooltip = "Claude Debugs For You (Running)";
+      statusBarItem.tooltip = "Claude Debugs For You (Running — click to stop)";
     } else {
       statusBarItem.text = "$(x) Claude Debugs For You";
-      statusBarItem.tooltip = "Claude Debugs For You (Stopped)";
+      statusBarItem.tooltip = "Claude Debugs For You (Stopped — click to start)";
     }
     statusBarItem.show();
   }
@@ -39,6 +40,21 @@ export function activate(context: vscode.ExtensionContext) {
     logger.info(`CDFY server stopped.`);
     updateStatusBar(false);
   });
+
+  let running = false;
+  server.on("started", () => { running = true; });
+  server.on("stopped", () => { running = false; });
+
+  // Toggle command wired to the status bar item click
+  context.subscriptions.push(
+    vscode.commands.registerCommand("mcpDebug.toggleServer", async () => {
+      if (running) {
+        await server.stop();
+      } else {
+        await startServer();
+      }
+    }),
+  );
 
   // Listen for configuration changes
   context.subscriptions.push(

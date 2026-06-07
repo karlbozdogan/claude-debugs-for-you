@@ -18,6 +18,13 @@
   ],
   "main": "./out/src/extension.js",
   "contributes": {
+    "commands": [
+      {
+        "command": "mcpDebug.toggleServer",
+        "title": "Toggle Server",
+        "category": "Claude Debugs For You"
+      }
+    ],
     "configuration": {
       "title": "Claude Debugs For You",
       "properties": {

@@ -116,6 +116,7 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
   }
 
   async start(): Promise<void> {
+    this.debugSessionRegistry.startTracking();
     return new Promise((resolve, reject) => {
       const server = this.app.listen(this.port, (err) => {
         if (err) {
@@ -173,6 +174,7 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
   }
 
   stop(): Promise<void> {
+    this.debugSessionRegistry.stopTracking();
     return new Promise((resolve) => {
       if (!this.server) {
         resolve();
