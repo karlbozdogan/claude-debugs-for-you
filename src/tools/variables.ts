@@ -13,7 +13,7 @@ const inputSchema = z.object({
 });
 
 export async function handle(debugSessionRegistry: DebugSessionRegistry, payload: z.infer<typeof inputSchema>) {
-  const session = debugSessionRegistry.getSession(payload.sessionId).session;
+  const session = debugSessionRegistry.getSessionOrTheStopped(payload.sessionId).session;
 
   const response = await session.customRequest("variables", {
     variablesReference: payload.variablesReference,

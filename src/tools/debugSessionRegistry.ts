@@ -46,15 +46,17 @@ export class DebugSessionRegistry {
     return this._sessions;
   }
 
-  getSession(id: string | undefined): DebugSessionState {
+  getSessionOrTheStopped(id: string | undefined): DebugSessionState {
     if (typeof id === "undefined") {
       if (this._sessions.size === 0) {
         throw new Error("There are no debug sessions.");
-      } else if (this._sessions.size === 1) {
-        return this._sessions.values().next().value!;
+      }
+      const stoppedSessions = [...this._sessions.values()].filter((x) => x.state.type === "stopped");
+      if (stoppedSessions.length === 1) {
+        return stoppedSessions[0];
       } else {
         throw new Error(
-          "There are multiple debug sessions. You need to pick a specific one. Use `getSessionStates` if necessary.",
+          "There are multiple stopped debug sessions. You need to pick a specific one. Use `getSessionStates` if necessary.",
         );
       }
     }

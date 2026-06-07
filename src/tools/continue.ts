@@ -8,7 +8,7 @@ const description = "Continue execution from a breakpoint. Do not use this unles
 const inputSchema = z.object({sessionId: z.string().optional()});
 
 export async function handle(debugSessionRegistry: DebugSessionRegistry, payload: z.infer<typeof inputSchema>) {
-  const session = debugSessionRegistry.getSession(payload.sessionId).session;
+  const session = debugSessionRegistry.getSessionOrTheStopped(payload.sessionId).session;
   
   // Get the current thread ID (required by DAP spec)
   const threads = await session.customRequest("threads");

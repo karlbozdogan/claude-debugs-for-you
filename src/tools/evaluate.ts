@@ -16,7 +16,7 @@ export async function handle(
   debugSessionRegistry: DebugSessionRegistry,
   payload: z.infer<typeof inputSchema>,
 ) {
-  const session = debugSessionRegistry.getSession(payload.sessionId).session;
+  const session = debugSessionRegistry.getSessionOrTheStopped(payload.sessionId).session;
 
   try {
     const response = await session.customRequest("evaluate", {
