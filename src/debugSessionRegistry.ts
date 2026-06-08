@@ -62,6 +62,10 @@ export class DebugSessionRegistry {
       if (this._sessions.size === 0) {
         throw new Error("There are no debug sessions.");
       }
+      // If there is a single session, return it.
+      if (this._sessions.size === 1) {
+        return this._sessions.values().next().value!;
+      }
       const stoppedSessions = [...this._sessions.values()].filter(
         (x) => x.state.type === "stopped",
       );

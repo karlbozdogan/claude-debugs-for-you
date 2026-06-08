@@ -9,6 +9,7 @@ const name = "removeBreakpoint";
 const description = "Remove a breakpoint.";
 
 const inputSchema = z.object({
+  sessionId: z.string().optional(),
   file: z.string(),
   line: z.coerce.number(),
 });
@@ -24,7 +25,13 @@ export async function handle(
 
   let closestLine: number | undefined;
 
-  payload.line--;
+  // Try un-resolving the line.
+  const sourceBreakpoint = debugSessionRegisty.getSessionOrTheStopped(payload.sessionId)?.breakpoints?.get(payload.file)?.find((b) => b.line === payload.line);
+  // Adjust the line in the payload if we could.
+  if (sourceBreakpoint) {
+    payload.line = sourceBreakpoint.requestedLine;
+  }
+
 
   const breakpoint = vscode.debug.breakpoints.find((bp) => {
     if (
@@ -33,11 +40,11 @@ export async function handle(
     ) {
       return false;
     }
-    if (bp.location.range.start.line === payload.line) {
+    if (bp.location.range.start.line+1 === payload.line) {
       return true;
     }
 
-    const breakpointLine = bp.location.range.start.line;
+    const breakpointLine = bp.location.range.start.line+1;
     closestLine =
       typeof closestLine === "undefined"
         ? breakpointLine
@@ -49,7 +56,7 @@ export async function handle(
     return false;
   });
   if (!breakpoint) {
-    return `Breakpoint not found.${typeof closestLine !== "undefined" ? ` The closest breakpoint is at line ${closestLine + 1}.` : ""}`;
+    return `Breakpoint not found.${typeof closestLine !== "undefined" ? ` The closest breakpoint is at line ${closestLine}.` : ""}`;
   }
   vscode.debug.removeBreakpoints([breakpoint]);
 

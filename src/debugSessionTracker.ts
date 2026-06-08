@@ -9,7 +9,7 @@ export type RunningState = { type: "running" };
 export type StoppedState = { type: "stopped"; threadId: number };
 export type ExitedState = { type: "exited" };
 
-export type Breakpoint = dap.Breakpoint & { line: number; condition?: string };
+export type Breakpoint = dap.Breakpoint & { requestedLine: number; line: number; condition?: string };
 
 export interface DebugSessionState {
   readonly session: vscode.DebugSession;
@@ -202,6 +202,7 @@ export class DebugSessionTracker {
       const responseBreakpoint = responseBreakpoints[i];
       mergedBreakpoints.push({
         ...responseBreakpoint,
+        requestedLine: requestBreakpoint.line,
         line: responseBreakpoint.line ?? requestBreakpoint.line,
         ...("condition" in requestBreakpoint
           ? { condition: requestBreakpoint.condition }
