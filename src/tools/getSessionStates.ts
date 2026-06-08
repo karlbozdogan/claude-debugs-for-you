@@ -2,7 +2,7 @@ import { z } from "zod";
 import { ToolConfig } from "./types";
 import { stackTrace } from "../utils/dap/stackTrace";
 import { cleanStackFrames, formatStackFrames } from "../utils/stackTraceFormat";
-import { DebugSessionRegistry } from "./debugSessionRegistry";
+import { DebugSessionRegistry } from "../debugSessionRegistry";
 
 const name = "getSessionStates";
 const description =

@@ -1,11 +1,11 @@
 import * as vscode from "vscode";
 import { z } from "zod";
-import { ContinuedSchema } from "../dap/events/continued";
-import { ExitedSchema } from "../dap/events/exited";
-import { StoppedSchema } from "../dap/events/stopped";
-import { logger } from "../logger";
-import * as dap from "../dap";
-import { BreakpointEventSchema } from "../dap/events/breakpoint_event";
+import { ContinuedSchema } from "./dap/events/continued";
+import { ExitedSchema } from "./dap/events/exited";
+import { StoppedSchema } from "./dap/events/stopped";
+import { logger } from "./logger";
+import * as dap from "./dap";
+import { BreakpointEventSchema } from "./dap/events/breakpoint_event";
 
 export type InitializingState = { type: "initializing" };
 export type RunningState = { type: "running" };

@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { DebugServer } from "./debug-server";
 import { logger } from "./logger";
-import { DebugSessionRegistry } from "./tools/debugSessionRegistry";
+import { DebugSessionRegistry } from "./debugSessionRegistry";
 
 let serverGlobal: DebugServer | null = null;
 

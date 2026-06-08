@@ -1,6 +1,6 @@
 import { z } from "zod";
 import * as vscode from "vscode";
-import { DebugSessionRegistry } from "./debugSessionRegistry";
+import { DebugSessionRegistry } from "../debugSessionRegistry";
 
 const name = "variables";
 const description =

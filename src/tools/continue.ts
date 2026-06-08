@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { ToolConfig } from './types';
-import { DebugSessionRegistry } from './debugSessionRegistry';
+import { DebugSessionRegistry } from '../debugSessionRegistry';
 
 const name = "continue";
 const description = "Continue execution from a breakpoint. Do not use this unless you know the debug session is stopped at a breakpoint. Most notably, you do not, in general, have to use this when starting a debug session. If you use this blindly, you risk skipping a breakpoint.";

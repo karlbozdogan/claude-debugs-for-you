@@ -4,7 +4,7 @@ import { ToolConfig } from "./types";
 import {
   DebugSessionRegistry,
   DebugSessionState,
-} from "./debugSessionRegistry";
+} from "../debugSessionRegistry";
 import * as GetSessionStates from "./getSessionStates";
 
 const name = "wait";

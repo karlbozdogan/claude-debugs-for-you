@@ -28,7 +28,7 @@ import {
 } from "@modelcontextprotocol/sdk/server/zod-compat.js";
 import { ToolConfig } from "./tools/types";
 import { logger } from "./logger";
-import { DebugSessionRegistry } from "./tools/debugSessionRegistry";
+import { DebugSessionRegistry } from "./debugSessionRegistry";
 
 interface DebugServerEvents {
   on(event: "started", listener: () => void): this;

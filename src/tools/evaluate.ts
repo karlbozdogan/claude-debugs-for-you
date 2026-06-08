@@ -1,7 +1,7 @@
 import { z } from "zod";
 import * as vscode from "vscode";
 import { ToolConfig } from "./types";
-import { DebugSessionRegistry } from "./debugSessionRegistry";
+import { DebugSessionRegistry } from "../debugSessionRegistry";
 
 const name = "evaluate";
 const description = "Evaluate a given expression at a given stack frame.";
