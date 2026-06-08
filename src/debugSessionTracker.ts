@@ -3,10 +3,6 @@ import { z } from "zod";
 
 import * as dap from "./dap";
 import { logger } from "./logger";
-import { BreakpointEventSchema } from "./dap/events/breakpoint_event";
-import { ContinuedSchema } from "./dap/events/continued";
-import { ExitedSchema } from "./dap/events/exited";
-import { StoppedSchema } from "./dap/events/stopped";
 
 export type InitializingState = { type: "initializing" };
 export type RunningState = { type: "running" };
@@ -22,6 +18,8 @@ export interface DebugSessionState {
   >;
   // Keyed by source path ?? name.
   breakpoints: ReadonlyMap<string, readonly Breakpoint[]>;
+ 
+  readOutputs(): dap.Output["body"][];
 }
 
 export class DebugSessionStateImpl implements DebugSessionState {
@@ -31,11 +29,22 @@ export class DebugSessionStateImpl implements DebugSessionState {
   // This only contains setBreakpoints requests that have not
   // received a response from the adapter yet.
   pending_setbreakpoints_requests: Map<number, dap.SetBreakpointsArguments>;
+  outputBuffer: [dap.Output["body"], number][]; // second: size in bytes
+  outputBufferSize = 0; // Total size in bytes
 
   constructor(session: vscode.DebugSession) {
     this.session = session;
     this.breakpoints = new Map();
     this.pending_setbreakpoints_requests = new Map();
+    this.outputBuffer = [];
+  }
+
+  readOutputs() {
+    // Strip away the size information
+    const outputs = this.outputBuffer.map(([body]) => body);
+    this.outputBuffer = [];
+    this.outputBufferSize = 0;
+    return outputs;
   }
 }
 
@@ -55,10 +64,11 @@ const setBreakpointsResponseSchema = z.object({
 type SetBreakpointsResponse = z.infer<typeof setBreakpointsResponseSchema>;
 
 const eventSchema = z.discriminatedUnion("event", [
-  BreakpointEventSchema,
-  ContinuedSchema,
-  ExitedSchema,
-  StoppedSchema,
+  dap.OutputSchema,
+  dap.BreakpointEventSchema,
+  dap.ContinuedSchema,
+  dap.ExitedSchema,
+  dap.StoppedSchema,
 ]);
 
 type Event = z.infer<typeof eventSchema>;
@@ -126,6 +136,18 @@ export class DebugSessionTracker {
     }
   }
 
+  handleOutputEvent(event: dap.Output["body"]) {
+    const BufferSizeLimit = 5*1024; // 5kb
+    const eventSize = JSON.stringify(event).length;
+    while (this.state.outputBufferSize + eventSize > BufferSizeLimit) {
+        const firstOutput = this.state.outputBuffer.splice(0, 1)[0];
+        this.state.outputBufferSize -= firstOutput[1];
+    }
+    // Always push the latest output
+    this.state.outputBuffer.push([event, eventSize]);
+    this.state.outputBufferSize += eventSize;
+  }
+
   handleDAPEvent(event: Event) {
     logger.debug("Got DAP event", this.state.session.id, event);
     switch (event.event) {
@@ -140,6 +162,9 @@ export class DebugSessionTracker {
         break;
       case "breakpoint":
         this.handleBreakpointEvent(event.body);
+        break;
+      case "output":
+        this.handleOutputEvent(event.body);
         break;
       default:
         event satisfies never;

@@ -43,23 +43,21 @@ export async function handle(
   return JSON.stringify(
     Object.fromEntries(
       await mapMapValuesAsync(sessions, async (sessionState) => {
-        return {
-          state: sessionState.state.type,
-          name: sessionState.session.name,
-          breakpoints: Object.fromEntries(
-            mapMapValues(sessionState.breakpoints, (breakpoints) =>
-              breakpoints.map((b) => {
-                return {
-                  line: b.line,
-                  verified: b.verified,
-                  message: b.message,
-                  condition: b.condition,
-                };
-              }),
-            ).entries(),
-          ),
-          pid: sessionState.session.configuration.pid ?? "<unknown>",
-          ...(sessionState.state.type === "stopped"
+        const output = sessionState.readOutputs();
+        const breakpoints = Object.fromEntries(
+          mapMapValues(sessionState.breakpoints, (breakpoints) =>
+            breakpoints.map((b) => {
+              return {
+                line: b.line,
+                verified: b.verified,
+                message: b.message,
+                condition: b.condition,
+              };
+            }),
+          ).entries(),
+        );
+        const frames =
+          sessionState.state.type === "stopped"
             ? {
                 frames: await (async (stoppedState) => {
                   const stack = await stackTrace(
@@ -72,7 +70,18 @@ export async function handle(
                   return frames;
                 })(sessionState.state),
               }
-            : {}),
+            : {};
+
+        return {
+          state: sessionState.state.type,
+          name: sessionState.session.name,
+          pid: sessionState.session.configuration.pid ?? "<unknown>",
+          breakpoints:
+            Object.keys(breakpoints).length > 0
+              ? breakpoints
+              : "<no breakpoints>",
+          recentOutput: output.length > 0 ? output : "<no recent output>",
+          ...frames,
         };
       }),
     ),
