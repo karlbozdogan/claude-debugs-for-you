@@ -2,6 +2,8 @@ import { z } from "zod";
 import * as vscode from "vscode";
 import { ToolConfig } from "./types";
 import { DebugSessionRegistry } from "../debugSessionRegistry";
+import { sleep } from "../utils/sleep";
+import * as GetSessionsState from "./getSessionStates";
 
 const name = "setBreakpoint";
 const description =
@@ -13,7 +15,7 @@ const inputSchema = z.object({
   condition: z.string().optional(),
 });
 
-export async function handle(_: DebugSessionRegistry, payload: z.infer<typeof inputSchema>) {
+export async function handle(debugSessionRegistry: DebugSessionRegistry, payload: z.infer<typeof inputSchema>) {
   // Open the file and make it active
   const document = await vscode.workspace.openTextDocument(payload.file);
   const editor = await vscode.window.showTextDocument(document);
@@ -27,7 +29,9 @@ export async function handle(_: DebugSessionRegistry, payload: z.infer<typeof in
     payload.condition,
   );
   vscode.debug.addBreakpoints([bp]);
-  return "Success.";
+  
+  await sleep(1000);
+  return GetSessionsState.handle(debugSessionRegistry);
 }
 
 export const tool = { name, description, inputSchema } satisfies ToolConfig<
