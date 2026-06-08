@@ -18,7 +18,7 @@ export interface DebugSessionState {
   >;
   // Keyed by source path ?? name.
   breakpoints: ReadonlyMap<string, readonly Breakpoint[]>;
- 
+
   readOutputs(): dap.Output["body"][];
 }
 
@@ -137,11 +137,11 @@ export class DebugSessionTracker {
   }
 
   handleOutputEvent(event: dap.Output["body"]) {
-    const BufferSizeLimit = 5*1024; // 5kb
+    const BufferSizeLimit = 5 * 1024; // 5kb
     const eventSize = JSON.stringify(event).length;
     while (this.state.outputBufferSize + eventSize > BufferSizeLimit) {
-        const firstOutput = this.state.outputBuffer.splice(0, 1)[0];
-        this.state.outputBufferSize -= firstOutput[1];
+      const firstOutput = this.state.outputBuffer.splice(0, 1)[0];
+      this.state.outputBufferSize -= firstOutput[1];
     }
     // Always push the latest output
     this.state.outputBuffer.push([event, eventSize]);
@@ -188,22 +188,17 @@ export class DebugSessionTracker {
     // Need to merge the request and the response, because the response
     // may omit line information and does not have conditions.
     const requestBreakpoints = request.breakpoints;
-    if (!requestBreakpoints) {
-      // It is allowed by DAP for the request to contain
-      // no breakpoints. Not much we can do in this case.
-      return;
-    }
     const responseBreakpoints = response.body.breakpoints;
     // As per the DAP spec.
-    if (requestBreakpoints.length !== responseBreakpoints.length) {
+    if ((requestBreakpoints?.length ?? 0) !== responseBreakpoints.length) {
       logger.warn("Mismatching setBreakpoints requests vs. response length.");
       return;
     }
 
     const mergedBreakpoints = [] as Breakpoint[];
 
-    for (let i = 0; i < requestBreakpoints.length; i++) {
-      const requestBreakpoint = requestBreakpoints[i];
+    for (let i = 0; i < (requestBreakpoints?.length ?? 0); i++) {
+      const requestBreakpoint = requestBreakpoints![i];
       const responseBreakpoint = responseBreakpoints[i];
       mergedBreakpoints.push({
         ...responseBreakpoint,
@@ -214,10 +209,12 @@ export class DebugSessionTracker {
       });
     }
 
-    this.state.breakpoints.set(
-      request.source.path ?? request.source.name,
-      mergedBreakpoints,
-    );
+    const sourceKey = request.source.path ?? request.source.name;
+    if (mergedBreakpoints.length === 0) {
+      this.state.breakpoints.delete(sourceKey);
+    } else {
+      this.state.breakpoints.set(sourceKey, mergedBreakpoints);
+    }
 
     this.fireStateChanged();
   }
