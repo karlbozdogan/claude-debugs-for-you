@@ -9,7 +9,7 @@ import * as GetSessionStates from "./getSessionStates";
 
 const name = "wait";
 const description =
-  "Block until a breakpoint gets hit or the debuggee exits. Times out after 15 seconds.";
+  "Block until a debug session starts, a breakpoint gets hit or the debuggee exits. Times out after 15 seconds.";
 
 const inputSchema = z.object({});
 
@@ -33,37 +33,44 @@ async function withTimeout<T>(
 }
 
 async function wait(debugSessionRegistry: DebugSessionRegistry) {
-  if (debugSessionRegistry.getSessions().size === 0) {
-    throw Error("No active debug session.");
-  }
-
-  const checkDebugSession = (x: DebugSessionState) =>
-    x.state.type === "stopped" || x.state.type === "exited";
-
-  // Return immediately if there are any stopped/exited targets.
-  if (
-    [...debugSessionRegistry.getSessions().values()].findIndex(
-      checkDebugSession,
-    ) !== -1
-  ) {
-    return;
-  }
-
   let handle: vscode.Disposable;
-  const promise = new Promise<void>(
-    (res) =>
-      (handle = debugSessionRegistry.onStateChanged((sessionId) => {
-        const session = debugSessionRegistry.tryGetSession(sessionId);
-        if (!session || checkDebugSession(session)) {
-          // The debug session got terminated/stopped/debuggee exited.
+  let promise: Promise<void>;
+  if (debugSessionRegistry.getSessions().size === 0) {
+    promise = new Promise<void>(
+      (res) =>
+        (handle = debugSessionRegistry.onStateChanged((sessionId) => {
+          // A new debug session has started.
           res();
-        }
-      })),
-  );
+        })),
+    );
+  } else {
+    const checkDebugSession = (x: DebugSessionState) =>
+      x.state.type === "stopped" || x.state.type === "exited";
+
+    // Return immediately if there are any stopped/exited targets.
+    if (
+      [...debugSessionRegistry.getSessions().values()].findIndex(
+        checkDebugSession,
+      ) !== -1
+    ) {
+      return;
+    }
+
+    promise = new Promise<void>(
+      (res) =>
+        (handle = debugSessionRegistry.onStateChanged((sessionId) => {
+          const session = debugSessionRegistry.tryGetSession(sessionId);
+          if (!session || checkDebugSession(session)) {
+            // The debug session got terminated/stopped/debuggee exited.
+            res();
+          }
+        })),
+    );
+  }
 
   return withTimeout(
     15000,
-    () => Error("No breakpoint was hit after 15 seconds. Timing out."),
+    () => Error("No results after 15 seconds. Timing out."),
     promise,
   ).finally(() => handle.dispose());
 }
