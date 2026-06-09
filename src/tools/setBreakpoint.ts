@@ -15,7 +15,10 @@ const inputSchema = z.object({
   condition: z.string().optional(),
 });
 
-export async function handle(debugSessionRegistry: DebugSessionRegistry, payload: z.infer<typeof inputSchema>) {
+export async function handle(
+  debugSessionRegistry: DebugSessionRegistry,
+  payload: z.infer<typeof inputSchema>,
+) {
   // Open the file and make it active
   const document = await vscode.workspace.openTextDocument(payload.file);
   const editor = await vscode.window.showTextDocument(document);
@@ -29,9 +32,14 @@ export async function handle(debugSessionRegistry: DebugSessionRegistry, payload
     payload.condition,
   );
   vscode.debug.addBreakpoints([bp]);
-  
-  await sleep(1000);
-  return GetSessionsState.handle(debugSessionRegistry);
+
+  if (debugSessionRegistry.getSessions().size > 0) {
+    await sleep(1000);
+    return GetSessionsState.handle(debugSessionRegistry);
+  } else {
+    // The breakpoint will be pending until a debug session starts.
+    return "Success.";
+  }
 }
 
 export const tool = { name, description, inputSchema } satisfies ToolConfig<

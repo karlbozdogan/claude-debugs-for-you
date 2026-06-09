@@ -4,6 +4,7 @@ import { ToolConfig } from "./types";
 import * as GetSessionsState from "./getSessionStates";
 import { DebugSessionRegistry } from "../debugSessionRegistry";
 import { sleep } from "../utils/sleep";
+import { Breakpoint } from "../debugSessionTracker";
 
 const name = "removeBreakpoint";
 const description = "Remove a breakpoint.";
@@ -28,7 +29,7 @@ const inputSchema = z.object({
 });
 
 export async function handle(
-  debugSessionRegisty: DebugSessionRegistry,
+  debugSessionRegistry: DebugSessionRegistry,
   payload: z.infer<typeof inputSchema>,
 ) {
   // Open the file and make it active
@@ -36,16 +37,20 @@ export async function handle(
   const editor = await vscode.window.showTextDocument(document);
   const targetUri = editor.document.uri.toString();
 
-  // Try un-resolving the line.
-  const sourceBreakpoints = debugSessionRegisty
-    .getSessionOrTheStopped(payload.sessionId)
-    ?.breakpoints?.get(payload.file);
-  const sourceBreakpoint = sourceBreakpoints?.find(
-    (b) => b.line === payload.line,
-  );
-  // Adjust the line in the payload if we could.
-  if (sourceBreakpoint) {
-    payload.line = sourceBreakpoint.requestedLine;
+  let sourceBreakpoints: readonly Breakpoint[] | undefined;
+
+  if (debugSessionRegistry.getSessions().size > 0) {
+    // Try un-resolving the line.
+    sourceBreakpoints = debugSessionRegistry
+      .getSessionOrTheStopped(payload.sessionId)
+      ?.breakpoints?.get(payload.file);
+    const sourceBreakpoint = sourceBreakpoints?.find(
+      (b) => b.line === payload.line,
+    );
+    // Adjust the line in the payload if we could.
+    if (sourceBreakpoint) {
+      payload.line = sourceBreakpoint.requestedLine;
+    }
   }
 
   const vscodeBreakpoints = vscode.debug.breakpoints
@@ -65,8 +70,12 @@ export async function handle(
   }
   vscode.debug.removeBreakpoints([breakpoint]);
 
-  await sleep(1000);
-  return GetSessionsState.handle(debugSessionRegisty);
+  if (debugSessionRegistry.getSessions().size > 0) {
+    await sleep(1000);
+    return GetSessionsState.handle(debugSessionRegistry);
+  } else {
+    return "Success.";
+  }
 }
 
 export const tool = { name, description, inputSchema } satisfies ToolConfig<
