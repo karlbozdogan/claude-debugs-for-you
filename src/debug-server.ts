@@ -29,6 +29,7 @@ import {
 import { ToolConfig } from "./tools/types";
 import { logger } from "./logger";
 import { DebugSessionRegistry } from "./debugSessionRegistry";
+import { mcpServerInstructions } from "./mcpServerInstructions";
 
 interface DebugServerEvents {
   on(event: "started", listener: () => void): this;
@@ -80,10 +81,13 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
           }
         };
 
-        const server = new McpServer({
-          name: "mcp-debug-server",
-          version: "1.0.0",
-        });
+        const server = new McpServer(
+          {
+            name: "mcp-debug-server",
+            version: "1.0.0",
+          },
+          { instructions: mcpServerInstructions },
+        );
 
         this.addTools(server);
 
@@ -134,7 +138,10 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
     function registerToolWrapper<Input extends AnySchema>(
       debugSessionRegistry: DebugSessionRegistry,
       config: ToolConfig<Input>,
-      tool: (debugSessionRegistry: DebugSessionRegistry, input: SchemaOutput<Input>) => Promise<string> | string,
+      tool: (
+        debugSessionRegistry: DebugSessionRegistry,
+        input: SchemaOutput<Input>,
+      ) => Promise<string> | string,
     ) {
       const toolWrapped = (async (
         input: SchemaOutput<Input>,
@@ -161,16 +168,44 @@ export class DebugServer extends EventEmitter implements DebugServerEvents {
       server.registerTool(config.name, config, toolWrapped);
     }
 
-    registerToolWrapper(this.debugSessionRegistry, setBreakpoint.tool, setBreakpoint.handle);
-    registerToolWrapper(this.debugSessionRegistry, removeBreakpoint.tool, removeBreakpoint.handle);
-    registerToolWrapper(this.debugSessionRegistry, variables.tool, variables.handle);
-    registerToolWrapper(this.debugSessionRegistry, evaluate.tool, evaluate.handle);
+    registerToolWrapper(
+      this.debugSessionRegistry,
+      setBreakpoint.tool,
+      setBreakpoint.handle,
+    );
+    registerToolWrapper(
+      this.debugSessionRegistry,
+      removeBreakpoint.tool,
+      removeBreakpoint.handle,
+    );
+    registerToolWrapper(
+      this.debugSessionRegistry,
+      variables.tool,
+      variables.handle,
+    );
+    registerToolWrapper(
+      this.debugSessionRegistry,
+      evaluate.tool,
+      evaluate.handle,
+    );
     registerToolWrapper(this.debugSessionRegistry, launch.tool, launch.handle);
     registerToolWrapper(this.debugSessionRegistry, stop.tool, stop.handle);
     registerToolWrapper(this.debugSessionRegistry, cont.tool, cont.handle);
-    registerToolWrapper(this.debugSessionRegistry, waitForBreakpoint.tool, waitForBreakpoint.handle);
-    registerToolWrapper(this.debugSessionRegistry, getWorkspace.tool, getWorkspace.handle);
-    registerToolWrapper(this.debugSessionRegistry, getSessionStates.tool, getSessionStates.handle);
+    registerToolWrapper(
+      this.debugSessionRegistry,
+      waitForBreakpoint.tool,
+      waitForBreakpoint.handle,
+    );
+    registerToolWrapper(
+      this.debugSessionRegistry,
+      getWorkspace.tool,
+      getWorkspace.handle,
+    );
+    registerToolWrapper(
+      this.debugSessionRegistry,
+      getSessionStates.tool,
+      getSessionStates.handle,
+    );
   }
 
   stop(): Promise<void> {

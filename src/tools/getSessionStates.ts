@@ -6,7 +6,7 @@ import { DebugSessionRegistry } from "../debugSessionRegistry";
 
 const name = "getSessionStates";
 const description =
-  "Get the state of the debug sessions, including a stack trace for the stopped thread per debug session in which the debuggee is stopped.";
+  "Get the state of the debug sessions, including a stack trace for the stopped thread per debug session in which the debuggee is stopped. Most other tools calls this implicitly, so you should rarely need to use it explicitly.";
 
 const inputSchema = z.object({});
 
